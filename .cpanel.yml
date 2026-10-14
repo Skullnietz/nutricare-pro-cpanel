@@ -1,0 +1,6 @@
+---
+deployment:
+  tasks:
+      - export DEPLOYPATH=/home/$USER/public_html/
+          - /bin/cp -f *.php $DEPLOYPATH
+              - /bin/cp -f *.css $DEPLOYPATH
