@@ -1,0 +1,25 @@
+:root { --primary: #0d9488; --bg: #f8fafc; --surface: #ffffff; --text: #0f172a; --border: #e2e8f0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: system-ui, -apple-system, sans-serif; background: var(--bg); color: var(--text); line-height: 1.5; font-size: 14px; }
+.container { max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+.section-pad { padding: 28px 0; }
+.topbar { background: #0f172a; color: #fff; padding: 14px 0; }
+.flex-between { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 12px; }
+.nav-links { display: flex; gap: 14px; align-items: center; }
+.nav-links a { color: #cbd5e1; text-decoration: none; font-weight: 600; }
+.hero { background: linear-gradient(135deg, #0f172a, #134e4a); color: #fff; padding: 44px 0; }
+.grid-2 { display: grid; grid-template-columns: repeat(2, 1fr); gap: 18px; }
+.card { background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 12px; padding: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.btn { display: inline-block; padding: 8px 14px; border-radius: 8px; font-weight: 600; text-decoration: none; cursor: pointer; border: 1px solid transparent; }
+.btn-primary { background: var(--primary); color: #fff; }
+.btn-outline { background: #fff; border-color: var(--border); color: var(--text); }
+.btn-whatsapp { background: #16a34a; color: #fff; }
+.btn-sm { padding: 5px 10px; font-size: 12px; }
+.badge { display: inline-block; padding: 3px 9px; border-radius: 99px; font-size: 11px; font-weight: 700; }
+.badge-teal { background: #ccfbf1; color: #0f766e; }
+label { display: block; font-weight: 600; font-size: 12.5px; margin-bottom: 10px; }
+input, select, textarea { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 7px; margin-top: 4px; }
+table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+th, td { padding: 10px; border-bottom: 1px solid var(--border); text-align: left; }
+.result-box { background: #f0fdfa; border: 1px solid #99f6e4; color: #0f766e; padding: 12px; border-radius: 8px; font-weight: 700; margin-top: 10px; }
+@media print { .no-print, .topbar { display: none !important; } }
