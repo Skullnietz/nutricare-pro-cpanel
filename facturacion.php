@@ -197,22 +197,37 @@ foreach ($facturasEmitidas as $fe) {
         </div>
         <?php endif; ?>
 
+        <!-- BANNER EJECUTIVO DE FACTURACIÓN CFDI 4.0 -->
+        <div class="module-banner flex-between no-print">
+            <div>
+                <span class="badge badge-teal">TIMBRADO ELECTRÓNICO · CATÁLOGOS SAT CFDI 4.0 · DEDUCCIÓN D01</span>
+                <h1>🧾 Centro de Facturación Electrónica CFDI 4.0 y Recibos</h1>
+                <p>Emisión inmediata de comprobantes fiscales para honorarios de Nutrición, Psicología, Psiconutrición y Checkups Médicos.</p>
+            </div>
+            <div>
+                <a href="cartera.php" class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.2);">👥 Ficha Fiscal Clientes</a>
+            </div>
+        </div>
+
         <!-- KPIS DE FACTURACIÓN -->
-        <div class="grid-3 no-print" style="margin-bottom:20px;">
+        <div class="grid-3 no-print" style="margin-bottom:22px;">
             <div class="kpi-card">
                 <div class="kpi-title">Total Facturado Vigente</div>
                 <div class="kpi-value">$<?= number_format($totalFacturadoMes, 2) ?></div>
                 <div class="kpi-sub">Honorarios exentos de IVA (Art. 15 LIVA) y paquetes</div>
+                <div class="progress-track"><div class="progress-fill" style="width: 92%;"></div></div>
             </div>
             <div class="kpi-card amber">
                 <div class="kpi-title">Recibos POS Pendientes de Timbrar</div>
                 <div class="kpi-value"><?= count($pagosPendientesFactura) ?> recibos</div>
                 <div class="kpi-sub">Solicitados por pacientes en Mostrador</div>
+                <div class="progress-track"><div class="progress-fill amber" style="width: 35%;"></div></div>
             </div>
             <div class="kpi-card blue">
                 <div class="kpi-title">Facturas CFDI 4.0 Emitidas</div>
                 <div class="kpi-value"><?= count($facturasEmitidas) ?> comprobantes</div>
                 <div class="kpi-sub">Con Claves SAT 85121800 (Nutrición/Checkup) y 85121600 (Psicología)</div>
+                <div class="progress-track"><div class="progress-fill blue" style="width: 85%;"></div></div>
             </div>
         </div>
 

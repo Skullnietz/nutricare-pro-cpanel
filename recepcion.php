@@ -7,7 +7,6 @@ $fechaFiltro = $_GET['fecha'] ?? date('Y-m-d');
 $docFiltro   = isset($_GET['nutriologo_id']) ? (int)$_GET['nutriologo_id'] : 0;
 $areaFiltro  = $_GET['area'] ?? '';
 $citaCobroId = isset($_GET['cobrar_cita_id']) ? (int)$_GET['cobrar_cita_id'] : 0;
-$msgMostrador = '';
 
 // 1. Cambiar estado de cita en Mostrador / Sala de Espera
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['cambiar_estado_cita']) && verify_csrf($_POST['csrf_token'] ?? '')) {
@@ -94,12 +93,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar_cobro_pos']
     $stmtPago = $pdo->prepare("INSERT INTO pagos_caja (folio_recibo, cita_id, paciente_id, nutriologo_id, servicio_id, categoria_ingreso, concepto, monto, descuento, impuestos, total_pagado, saldo_pendiente_generado, metodo_pago, referencia_pago, comision_especialista, requiere_factura, estado_factura, registrado_por, fecha_pago) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0.00, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     $stmtPago->execute([$folio, $citaId, $pacienteId, $especialistaId, $servicioId, $categoria, $concepto, $monto, $descuento, $pagadoHoy, $saldoGenerado, $metodoPago, $referencia, $comisionMonto, $requiereFactura, $estadoFactura, $usuario['id'], date('Y-m-d H:i:s')]);
 
-    // Si está vinculado a una cita, marcar cita como pagada y finalizada
     if ($citaId) {
         $pdo->prepare("UPDATE citas SET pagado = 1, estado = 'finalizada' WHERE id = ?")->execute([$citaId]);
     }
 
-    // Actualizar Cartera del Paciente (Saldos, Histórico y Paquetes/Checkups)
     if ($pacienteId) {
         $pdo->prepare("UPDATE pacientes SET total_historico_pagado = total_historico_pagado + ?, saldo_pendiente = saldo_pendiente + ?, ultima_visita = ? WHERE id = ?")
             ->execute([$pagadoHoy, $saldoGenerado, date('Y-m-d'), $pacienteId]);
@@ -176,7 +173,6 @@ $stmtCitas = $pdo->prepare($sqlCitas);
 $stmtCitas->execute($params);
 $citasDia = $stmtCitas->fetchAll();
 
-// Precargar cita seleccionada para cobrar en POS
 $citaSeleccionadaCobro = null;
 if ($citaCobroId > 0) {
     foreach ($citasDia as $cd) {
@@ -191,7 +187,6 @@ $especialistas = $pdo->query("SELECT * FROM usuarios WHERE rol IN ('nutriologo',
 $pacientesList = $pdo->query("SELECT id, folio_expediente, nombre_completo, nombre_paquete_activo, sesiones_disponibles_nutri, sesiones_disponibles_psico, checkups_disponibles, saldo_pendiente FROM pacientes ORDER BY nombre_completo ASC")->fetchAll();
 $serviciosList = $pdo->query("SELECT * FROM catalogo_servicios WHERE activo = 1 ORDER BY id ASC")->fetchAll();
 
-// Resumen de Pagos y Corte del Día
 $stmtPagosHoy = $pdo->prepare("SELECT pg.*, u.nombre AS especialista_nombre, p.nombre_completo AS paciente_nombre
                                FROM pagos_caja pg
                                JOIN usuarios u ON pg.nutriologo_id = u.id
@@ -240,96 +235,116 @@ foreach ($citasDia as $c) {
     <main class="container section-pad">
         <?php if (isset($_GET['msg']) && $_GET['msg'] === 'cobro_ok'): ?>
             <div class="result-box">
-                ✅ Cobro registrado exitosamente con Folio <strong><?= htmlspecialchars($_GET['folio'] ?? '') ?></strong>. El corte de caja, comisiones y cartera del paciente se han actualizado.
+                ✅ Cobro procesado con éxito — Folio <strong><?= htmlspecialchars($_GET['folio'] ?? '') ?></strong>. El corte de caja, las comisiones del especialista y la cartera del paciente han sido actualizados.
                 <a href="facturacion.php" class="btn btn-sm btn-primary" style="margin-left:10px;">🧾 Ir a Facturación CFDI 4.0</a>
             </div>
         <?php elseif (isset($_GET['msg']) && $_GET['msg'] === 'corte_ok'): ?>
             <div class="result-box">✅ Arqueo y Corte de Caja diario guardado correctamente en el historial auditable.</div>
         <?php elseif (isset($_GET['msg']) && $_GET['msg'] === 'cita_creada'): ?>
-            <div class="result-box">✅ Paciente registrado e ingresado al flujo de Sala de Espera.</div>
+            <div class="result-box">✅ Paciente registrado e ingresado al flujo de Sala de Espera en vivo.</div>
         <?php endif; ?>
 
-        <!-- PANTALLA DE SALA DE ESPERA Y TURNOS EN VIVO -->
+        <!-- PANTALLA DE SALA DE ESPERA Y TURNOS EN VIVO (MODO MONITOR TV + TIMBRE SONORO) -->
         <section class="waiting-board">
-            <div class="flex-between" style="margin-bottom:14px;">
+            <div class="flex-between" style="margin-bottom:18px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:14px;">
                 <div>
-                    <span class="badge badge-teal">📺 PANTALLA DE SALA DE ESPERA Y LLAMADO DE TURNOS EN VIVO</span>
-                    <h2 style="color:#fff; margin-top:6px;">Flujo de Pacientes en Mostrador y Consultorios (<?= htmlspecialchars($fechaFiltro) ?>)</h2>
+                    <div style="display:inline-flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:#5eead4; text-transform:uppercase; letter-spacing:0.6px;">
+                        <span class="live-dot"></span> MONITOR DE SALA DE ESPERA Y LLAMADO A CONSULTORIOS EN VIVO
+                    </div>
+                    <h2 style="color:#fff; margin-top:4px; font-size:22px;">Flujo de Pacientes en Sala, Checkups y Consultorios</h2>
                 </div>
-                <div style="text-align:right;">
-                    <span class="badge badge-amber">En Sala: <?= $enSalaCount ?></span>
-                    <span class="badge badge-purple" style="margin-left:6px;">En Consulta / Checkup: <?= $enConsultaCount ?></span>
+                <div style="display:flex; align-items:center; gap:12px;">
+                    <div style="text-align:right; background:rgba(255,255,255,0.06); padding:6px 14px; border-radius:10px; border:1px solid rgba(255,255,255,0.12);">
+                        <small style="display:block; font-size:10px; color:#94a3b8;">RELOJ DE SALA</small>
+                        <strong id="reloj_sala" class="mono" style="font-size:16px; color:#5eead4;"><?= date('H:i:s') ?></strong>
+                    </div>
+                    <div>
+                        <span class="badge badge-amber">🛋️ En Sala: <?= $enSalaCount ?></span>
+                        <span class="badge badge-purple" style="margin-left:6px;">🩺 En Consulta: <?= $enConsultaCount ?></span>
+                    </div>
                 </div>
             </div>
+
             <div class="grid-3">
                 <?php
                 $activosSala = array_filter($citasDia, fn($x) => in_array($x['estado'], ['en_sala', 'en_consulta', 'por_cobrar'], true));
                 if (empty($activosSala)):
                 ?>
                     <div class="turn-pill" style="grid-column: 1 / -1;">
-                        <span>Sin pacientes esperando en sala en este instante. Usa el botón <strong>"Pasar a Sala (Check-in)"</strong> en la tabla inferior cuando llegue un paciente.</span>
+                        <span>Sin pacientes esperando en sala en este instante. Haz clic en <strong>"🛋️ En Sala"</strong> en la tabla inferior cuando llegue un paciente al mostrador.</span>
                     </div>
                 <?php else: foreach ($activosSala as $as):
                     $turnClass = $as['area_cita'] === 'psicologia' ? 'psico' : ($as['area_cita'] === 'checkup' ? 'checkup' : ($as['area_cita'] === 'psiconutricion' ? 'psiconut' : ''));
                 ?>
-                    <div class="turn-pill">
-                        <div>
+                    <div class="turn-pill" id="turn_card_<?= (int)$as['id'] ?>">
+                        <div style="text-align:center;">
                             <span class="turn-code <?= $turnClass ?>"><?= htmlspecialchars($as['turno_sala']) ?></span>
                             <?php if ($as['requiere_ayuno']): ?>
                                 <span class="badge badge-amber" style="display:block; margin-top:6px;">🔬 Ayuno 8h</span>
                             <?php endif; ?>
                         </div>
                         <div style="flex:1;">
-                            <strong style="font-size:14px; color:#fff;"><?= htmlspecialchars($as['nombre_mostrar']) ?></strong><br>
-                            <small style="color:#cbd5e1;"><?= htmlspecialchars($as['consultorio']) ?> · <?= htmlspecialchars($as['doctor_nombre']) ?></small><br>
-                            <small style="color:#94a3b8;">Llegada: <?= htmlspecialchars($as['hora_llegada_sala'] ?: substr($as['hora_inicio'], 0, 5)) ?></small>
+                            <strong style="font-size:14.5px; color:#fff;"><?= htmlspecialchars($as['nombre_mostrar']) ?></strong><br>
+                            <small style="color:#5eead4; font-weight:600;">📍 <?= htmlspecialchars($as['consultorio']) ?></small><br>
+                            <small style="color:#cbd5e1;">👩‍⚕️ <?= htmlspecialchars($as['doctor_nombre']) ?> · Llegada: <?= htmlspecialchars($as['hora_llegada_sala'] ?: substr($as['hora_inicio'], 0, 5)) ?></small>
                         </div>
-                        <div>
+                        <div style="text-align:right; display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
                             <?php if ($as['estado'] === 'en_sala'): ?>
                                 <span class="badge badge-amber">⏳ EN SALA DE ESPERA</span>
                             <?php elseif ($as['estado'] === 'en_consulta'): ?>
-                                <span class="badge badge-teal">🩺 PASÓ A CONSULTORIO</span>
+                                <span class="badge badge-teal">🩺 EN CONSULTORIO</span>
                             <?php else: ?>
-                                <span class="badge badge-rose">💳 PASAR A CAJA</span>
+                                <span class="badge badge-rose">💳 PASAR A CAJA POS</span>
                             <?php endif; ?>
+                            <button type="button" onclick="llamarTurnoSonoro(<?= (int)$as['id'] ?>, '<?= htmlspecialchars($as['turno_sala']) ?>', '<?= htmlspecialchars(addslashes($as['nombre_mostrar'])) ?>', '<?= htmlspecialchars(addslashes($as['consultorio'])) ?>')" class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.1); color:#fff; border-color:rgba(255,255,255,0.2); padding:4px 9px;">
+                                🔔 Llamar Turno
+                            </button>
                         </div>
                     </div>
                 <?php endforeach; endif; ?>
             </div>
+            <div id="aviso_llamado" style="display:none; margin-top:14px; background:rgba(20,184,166,0.2); border:1px solid #5eead4; padding:10px 16px; border-radius:10px; color:#fff; font-weight:700; text-align:center;"></div>
         </section>
 
-        <!-- KPIS OPERATIVOS DEL DÍA -->
-        <div class="grid-4" style="margin-bottom:20px;">
+        <!-- KPIS OPERATIVOS DEL DÍA CON BARRAS DE PROGRESO -->
+        <div class="grid-4" style="margin-bottom:24px;">
             <div class="kpi-card">
-                <div class="kpi-title">Agenda del Día</div>
+                <div class="kpi-title">Agenda Operativa Hoy</div>
                 <div class="kpi-value"><?= count($citasDia) ?> citas</div>
                 <div class="kpi-sub">Nutrición, Psicología y Checkups</div>
+                <div class="progress-track"><div class="progress-fill" style="width: 82%;"></div></div>
             </div>
             <div class="kpi-card purple">
                 <div class="kpi-title">En Sala / En Consulta</div>
                 <div class="kpi-value"><?= $enSalaCount ?> / <?= $enConsultaCount ?></div>
-                <div class="kpi-sub">Atención en tiempo real</div>
+                <div class="kpi-sub">Triage y atención en vivo</div>
+                <div class="progress-track"><div class="progress-fill purple" style="width: 65%;"></div></div>
             </div>
             <div class="kpi-card blue">
                 <div class="kpi-title">Ingresos Cobrados Hoy (POS)</div>
                 <div class="kpi-value">$<?= number_format($totalIngresosHoy, 2) ?></div>
                 <div class="kpi-sub">Efec: $<?= number_format($ingEfectivoHoy, 0) ?> · Tarj/SPEI: $<?= number_format($ingTarjetaHoy + $ingTransfHoy, 0) ?></div>
+                <div class="progress-track"><div class="progress-fill blue" style="width: 88%;"></div></div>
             </div>
             <div class="kpi-card amber">
                 <div class="kpi-title">Comisiones Generadas Hoy</div>
                 <div class="kpi-value">$<?= number_format($totalComisionesHoy, 2) ?></div>
-                <div class="kpi-sub">Utilidad Clínica Hoy: $<?= number_format($totalIngresosHoy - $totalComisionesHoy, 2) ?></div>
+                <div class="kpi-sub">Retención Clínica: $<?= number_format($totalIngresosHoy - $totalComisionesHoy, 2) ?></div>
+                <div class="progress-track"><div class="progress-fill amber" style="width: 70%;"></div></div>
             </div>
         </div>
 
-        <!-- BARRA DE FILTROS Y REGISTRO WALK-IN EN MOSTRADOR -->
+        <!-- BARRA DE FILTROS Y TABLA DE CONTROL DE MOSTRADOR -->
         <div class="card">
-            <div class="flex-between">
-                <h3>📋 Control de Mostrador, Recepción de Pacientes y Triage de Checkups</h3>
+            <div class="flex-between" style="margin-bottom:14px;">
+                <div>
+                    <h2>📋 Control de Mostrador, Recepción de Pacientes y Triage de Checkups</h2>
+                    <p class="muted">Administra el estatus de cada paciente desde su llegada hasta el cobro en Punto de Venta.</p>
+                </div>
                 <form method="GET" style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
                     <input type="date" name="fecha" value="<?= htmlspecialchars($fechaFiltro) ?>" style="width:auto; margin:0;">
                     <select name="area" style="width:auto; margin:0;">
-                        <option value="">Todas las Áreas</option>
+                        <option value="">Todas las Especialidades</option>
                         <option value="nutricion" <?= $areaFiltro === 'nutricion' ? 'selected' : '' ?>>🥗 Nutrición</option>
                         <option value="psicologia" <?= $areaFiltro === 'psicologia' ? 'selected' : '' ?>>🧠 Psicología</option>
                         <option value="psiconutricion" <?= $areaFiltro === 'psiconutricion' ? 'selected' : '' ?>>🤝 Psiconutrición</option>
@@ -343,7 +358,7 @@ foreach ($citasDia as $c) {
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <button type="submit" class="btn btn-outline btn-sm">Filtrar Agenda</button>
+                    <button type="submit" class="btn btn-primary btn-sm">Filtrar Agenda</button>
                 </form>
             </div>
 
@@ -380,7 +395,7 @@ foreach ($citasDia as $c) {
                         ?>
                         <tr>
                             <td>
-                                <span class="badge badge-slate"><?= htmlspecialchars($c['turno_sala']) ?></span>
+                                <span class="badge badge-slate mono"><?= htmlspecialchars($c['turno_sala']) ?></span>
                                 <strong><?= substr($c['hora_inicio'], 0, 5) ?></strong><br>
                                 <small class="muted">Check-in: <?= htmlspecialchars($c['hora_llegada_sala'] ?: '—') ?></small>
                             </td>
@@ -436,7 +451,7 @@ foreach ($citasDia as $c) {
                                     <button name="nuevo_estado" value="en_consulta" class="btn btn-purple btn-sm" title="Pasar a Consultorio">🩺 En Consulta</button>
                                     <button name="nuevo_estado" value="por_cobrar" class="btn btn-outline btn-sm" title="Terminó consulta, pasar a caja">💳 A Caja</button>
                                 </form>
-                                <div style="margin-top:5px; display:flex; gap:4px; flex-wrap:wrap;">
+                                <div style="margin-top:6px; display:flex; gap:5px; flex-wrap:wrap;">
                                     <?php if (!$c['pagado']): ?>
                                         <a href="recepcion.php?fecha=<?= urlencode($fechaFiltro) ?>&cobrar_cita_id=<?= (int)$c['id'] ?>#pos-caja" class="btn btn-primary btn-sm">💵 Cobrar POS</a>
                                     <?php endif; ?>
@@ -452,10 +467,9 @@ foreach ($citasDia as $c) {
                 </table>
             </div>
 
-            <!-- Ingreso rápido en mostrador (Walk-in / Agendar cita en recepción) -->
-            <details style="margin-top:16px; border-top:1px solid var(--border); padding-top:12px;">
-                <summary style="cursor:pointer; font-weight:700; color:var(--primary);">➕ Registrar Llegada sin Cita (Walk-In) o Nueva Cita desde Mostrador</summary>
-                <form method="POST" class="grid-4" style="margin-top:12px;">
+            <details style="margin-top:18px; border-top:1px solid var(--border); padding-top:14px;">
+                <summary style="cursor:pointer; font-weight:700; color:var(--primary); font-size:13.5px;">➕ Registrar Llegada sin Cita (Walk-In) o Nueva Cita desde Mostrador</summary>
+                <form method="POST" class="grid-4" style="margin-top:14px;">
                     <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                     <input type="hidden" name="nueva_cita_mostrador" value="1">
                     <label>Paciente en Cartera (Opcional)
@@ -502,7 +516,7 @@ foreach ($citasDia as $c) {
                     <label style="grid-column: span 3;">Notas / Triage (Ej. Ayuno verificado 10h, motivo de consulta)
                         <input type="text" name="motivo_notas" placeholder="Observaciones de recepción">
                     </label>
-                    <div style="display:flex; align-items:flex-end; margin-bottom:10px;">
+                    <div style="display:flex; align-items:flex-end; margin-bottom:12px;">
                         <button type="submit" class="btn btn-primary" style="width:100%;">Registrar en Mostrador</button>
                     </div>
                 </form>
@@ -511,9 +525,9 @@ foreach ($citasDia as $c) {
 
         <!-- PUNTO DE VENTA (POS) Y CORTE DE CAJA -->
         <div class="grid-2" id="pos-caja">
-            <div class="card">
-                <h3>💳 Punto de Venta (POS) — Cobro de Consultas, Checkups, Paquetes y Abonos</h3>
-                <p class="muted" style="margin-bottom:12px;">Calcula automáticamente comisiones por especialista, actualiza paquetes/checkups del paciente y prepara timbrado CFDI 4.0.</p>
+            <div class="card" style="border-top: 4px solid var(--primary);">
+                <h3>💳 Terminal Punto de Venta (POS) — Cobro, Checkups, Paquetes y Abonos</h3>
+                <p class="muted" style="margin-bottom:14px;">Calcula comisiones automáticamente, acredita o redime sesiones de paquetes y envía a timbrado CFDI 4.0.</p>
                 <form method="POST" class="grid-2">
                     <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
                     <input type="hidden" name="registrar_cobro_pos" value="1">
@@ -546,9 +560,9 @@ foreach ($citasDia as $c) {
                     </label>
 
                     <label>Especialista que Atendió *
-                        <select name="nutriologo_id" required>
+                        <select name="nutriologo_id" id="pos_doctor" onchange="recalcularPOS()" required>
                             <?php foreach ($especialistas as $doc): ?>
-                                <option value="<?= (int)$doc['id'] ?>" <?= ($citaSeleccionadaCobro && (int)$citaSeleccionadaCobro['nutriologo_id'] === (int)$doc['id']) ? 'selected' : '' ?>>
+                                <option value="<?= (int)$doc['id'] ?>" data-comision="<?= (float)$doc['porcentaje_comision'] ?>" <?= ($citaSeleccionadaCobro && (int)$citaSeleccionadaCobro['nutriologo_id'] === (int)$doc['id']) ? 'selected' : '' ?>>
                                     <?= htmlspecialchars($doc['nombre']) ?> (Comisión <?= (float)$doc['porcentaje_comision'] ?>%)
                                 </option>
                             <?php endforeach; ?>
@@ -578,8 +592,8 @@ foreach ($citasDia as $c) {
                         <input type="number" name="descuento" id="pos_descuento" step="0.01" value="0" oninput="recalcularPOS()">
                     </label>
 
-                    <label>Monto Pagado Hoy ($ MXN) <small class="muted">(Si paga menos, el resto va a Saldo Pendiente)</small>
-                        <input type="number" name="total_pagado" id="pos_pagado" step="0.01" value="<?= (float)($citaSeleccionadaCobro['costo_estimado'] ?? 950) ?>" required>
+                    <label>Monto Pagado Hoy ($ MXN) *
+                        <input type="number" name="total_pagado" id="pos_pagado" step="0.01" value="<?= (float)($citaSeleccionadaCobro['costo_estimado'] ?? 950) ?>" oninput="actualizarDesglosePOS()" required>
                     </label>
 
                     <label>Método de Pago *
@@ -592,6 +606,10 @@ foreach ($citasDia as $c) {
                         </select>
                     </label>
 
+                    <div style="grid-column: span 2; background:#f0fdfa; border:1px solid #99f6e4; border-radius:10px; padding:10px 14px; font-size:12.5px; color:#0f766e;" id="pos_desglose_live">
+                        💡 <strong>Desglose Autónomo:</strong> Comisión Especialista: <strong>$665.00</strong> · Retención Clínica: <strong>$285.00</strong> · Saldo Restante a Cartera: <strong>$0.00</strong>
+                    </div>
+
                     <label>Referencia Terminal / Clave Rastreo SPEI
                         <input type="text" name="referencia_pago" placeholder="Ej. AUT-92810 o SPEI-1029">
                     </label>
@@ -602,15 +620,15 @@ foreach ($citasDia as $c) {
                     </label>
 
                     <div style="grid-column: span 2;">
-                        <button type="submit" class="btn btn-primary" style="width:100%; padding:11px;">✅ Emitir Recibo de Caja, Registrar Pago y Actualizar Cartera</button>
+                        <button type="submit" class="btn btn-primary btn-lg" style="width:100%;">✅ Emitir Recibo de Caja, Registrar Pago y Actualizar Cartera</button>
                     </div>
                 </form>
             </div>
 
             <!-- CORTE DE CAJA Y ARQUEO CIEGO -->
-            <div class="card">
-                <h3>📊 Movimientos de Caja Hoy y Cierre de Turno (Arqueo)</h3>
-                <div class="table-wrap" style="max-height:240px; overflow-y:auto;">
+            <div class="card" style="border-top: 4px solid var(--blue);">
+                <h3>📊 Movimientos de Caja Hoy y Cierre de Turno (Arqueo Ciego)</h3>
+                <div class="table-wrap" style="max-height:250px; overflow-y:auto;">
                     <table>
                         <thead>
                             <tr>
@@ -624,7 +642,7 @@ foreach ($citasDia as $c) {
                         <tbody>
                             <?php foreach ($pagosHoy as $p): ?>
                             <tr>
-                                <td><strong><?= htmlspecialchars($p['folio_recibo']) ?></strong></td>
+                                <td><code style="font-weight:700;"><?= htmlspecialchars($p['folio_recibo']) ?></code></td>
                                 <td>
                                     <strong><?= htmlspecialchars($p['paciente_nombre'] ?: 'Mostrador') ?></strong><br>
                                     <small class="muted"><?= htmlspecialchars($p['concepto']) ?></small>
@@ -652,9 +670,9 @@ foreach ($citasDia as $c) {
                 </div>
 
                 <?php $efectivoEsperadoCaja = 1000.00 + $ingEfectivoHoy - $gastosEfectivoHoy; ?>
-                <div style="background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:14px; margin-top:14px;">
+                <div style="background:#f8fafc; border:1px solid var(--border); border-radius:12px; padding:16px; margin-top:16px;">
                     <h4 style="margin-bottom:8px;">🔒 Cerrar Corte de Caja Diario / Arqueo de Efectivo</h4>
-                    <p class="muted" style="margin-bottom:10px;">
+                    <p class="muted" style="margin-bottom:12px;">
                         Fondo Fijo: <strong>$1,000.00</strong> + Cobros Efectivo: <strong>$<?= number_format($ingEfectivoHoy, 2) ?></strong>
                         - Gastos Caja Chica: <strong>$<?= number_format($gastosEfectivoHoy, 2) ?></strong>
                         = Efectivo Esperado en Gaveta: <strong>$<?= number_format($efectivoEsperadoCaja, 2) ?></strong>
@@ -691,6 +709,40 @@ foreach ($citasDia as $c) {
     </main>
 
     <script>
+    // Reloj en tiempo real para Sala de Espera
+    setInterval(() => {
+        const el = document.getElementById('reloj_sala');
+        if (el) el.textContent = new Date().toLocaleTimeString('es-MX', { hour12: false });
+    }, 1000);
+
+    // Timbre sonoro Web Audio API y resaltado visual de llamado a consultorio
+    function llamarTurnoSonoro(id, turno, paciente, consultorio) {
+        try {
+            const ctx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
+            osc.frequency.setValueAtTime(880.00, ctx.currentTime + 0.18); // A5
+            gain.gain.setValueAtTime(0.18, ctx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.65);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start();
+            osc.stop(ctx.currentTime + 0.65);
+        } catch (e) {}
+
+        document.querySelectorAll('.turn-pill').forEach(c => c.classList.remove('called-highlight'));
+        const card = document.getElementById('turn_card_' + id);
+        if (card) card.classList.add('called-highlight');
+
+        const aviso = document.getElementById('aviso_llamado');
+        if (aviso) {
+            aviso.style.display = 'block';
+            aviso.innerHTML = `🔔 <strong>LLAMADO EN PANTALLA:</strong> Turno <code>${turno}</code> — <strong>${paciente}</strong>, favor de pasar a <strong>${consultorio}</strong>.`;
+        }
+    }
+
     function seleccionarServicioPOS(sel) {
         const opt = sel.options[sel.selectedIndex];
         if (!opt || !opt.value) return;
@@ -699,14 +751,34 @@ foreach ($citasDia as $c) {
         const area = opt.getAttribute('data-area') || 'nutricion';
         document.getElementById('pos_concepto').value = nombre;
         document.getElementById('pos_monto').value = precio.toFixed(2);
-        document.getElementById('pos_Categoria' in window ? 'pos_categoria' : 'pos_categoria').value = area;
+        document.getElementById('pos_categoria').value = area;
         recalcularPOS();
     }
+
     function recalcularPOS() {
         const monto = parseFloat(document.getElementById('pos_monto').value) || 0;
         const desc = parseFloat(document.getElementById('pos_descuento').value) || 0;
         const neto = Math.max(0, monto - desc);
         document.getElementById('pos_pagado').value = neto.toFixed(2);
+        actualizarDesglosePOS();
+    }
+
+    function actualizarDesglosePOS() {
+        const monto = parseFloat(document.getElementById('pos_monto').value) || 0;
+        const desc = parseFloat(document.getElementById('pos_descuento').value) || 0;
+        const neto = Math.max(0, monto - desc);
+        const pagado = parseFloat(document.getElementById('pos_pagado').value) || 0;
+        const saldo = Math.max(0, neto - pagado);
+
+        const docSel = document.getElementById('pos_doctor');
+        const pctCom = parseFloat(docSel?.options[docSel.selectedIndex]?.getAttribute('data-comision')) || 70;
+        const comision = (pagado * (pctCom / 100)).toFixed(2);
+        const retencion = (pagado - parseFloat(comision)).toFixed(2);
+
+        const box = document.getElementById('pos_desglose_live');
+        if (box) {
+            box.innerHTML = `💡 <strong>Desglose Autónomo (${pctCom}% com.):</strong> Comisión Especialista: <strong>$${comision}</strong> · Retención Clínica: <strong>$${retencion}</strong> · Saldo Restante a Cartera: <strong>$${saldo.toFixed(2)}</strong>`;
+        }
     }
     </script>
 </body>

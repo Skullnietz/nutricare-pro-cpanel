@@ -215,13 +215,14 @@ $ultimoChk = $historialCheckups[0] ?? null;
         </div>
 
         <!-- KPIS CLÍNICOS UNIFICADOS DEL PACIENTE -->
-        <div class="grid-4" style="margin-bottom:18px;">
+        <div class="grid-4" style="margin-bottom:22px;">
             <div class="kpi-card">
                 <div class="kpi-title">Composición Corporal (ISAK)</div>
                 <div class="kpi-value"><?= $ultimaNut ? $ultimaNut['peso_kg'] . ' kg · IMC ' . $ultimaNut['imc'] : 'Sin registro' ?></div>
                 <div class="kpi-sub">
                     Grasa: <?= $ultimaNut['porcentaje_grasa'] ?? '—' ?>% · Músculo: <?= $ultimaNut['porcentaje_musculo'] ?? '—' ?>% · 4 Pliegues: <?= $ultimaNut['suma_4_pliegues_mm'] ?? '—' ?> mm
                 </div>
+                <div class="progress-track"><div class="progress-fill" style="width: 76%;"></div></div>
             </div>
             <div class="kpi-card blue">
                 <div class="kpi-title">Último Checkup 360° (HOMA-IR)</div>
@@ -231,6 +232,7 @@ $ultimoChk = $historialCheckups[0] ?? null;
                 <div class="kpi-sub">
                     PA: <?= $ultimoChk ? $ultimoChk['presion_sistolica'] . '/' . $ultimoChk['presion_diastolica'] : '—' ?> mmHg · Glucosa: <?= $ultimoChk['glucosa_ayuno_mg'] ?? '—' ?> mg/dL
                 </div>
+                <div class="progress-track"><div class="progress-fill blue" style="width: <?= (int)($ultimoChk['score_salud_integral'] ?? 85) ?>%;"></div></div>
             </div>
             <div class="kpi-card purple">
                 <div class="kpi-title">Tamizaje Psicoemocional</div>
@@ -240,6 +242,7 @@ $ultimoChk = $historialCheckups[0] ?? null;
                 <div class="kpi-sub">
                     PHQ-9: <?= $ultimaPsi['phq9_depresion'] ?? '—' ?> · Sueño: <?= $ultimaPsi['calidad_sueno_hrs'] ?? '—' ?> hrs/noche
                 </div>
+                <div class="progress-track"><div class="progress-fill purple" style="width: 72%;"></div></div>
             </div>
             <div class="kpi-card amber">
                 <div class="kpi-title">Sesiones / Checkups en Paquete</div>
@@ -247,6 +250,7 @@ $ultimoChk = $historialCheckups[0] ?? null;
                     🥗 <?= (int)($paciente['sesiones_disponibles_nutri'] ?? 0) ?> · 🧠 <?= (int)($paciente['sesiones_disponibles_psico'] ?? 0) ?> · 🔬 <?= (int)($paciente['checkups_disponibles'] ?? 0) ?>
                 </div>
                 <div class="kpi-sub"><?= htmlspecialchars($paciente['nombre_paquete_activo'] ?? 'Pago por consulta') ?></div>
+                <div class="progress-track"><div class="progress-fill amber" style="width: 80%;"></div></div>
             </div>
         </div>
 

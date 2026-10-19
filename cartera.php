@@ -108,27 +108,43 @@ $psicologos  = $pdo->query("SELECT id, nombre FROM usuarios WHERE rol = 'psicolo
             <div class="result-box">✅ Abono registrado en Caja POS y descontado del saldo pendiente del cliente.</div>
         <?php endif; ?>
 
+        <!-- BANNER EJECUTIVO DE CARTERA CRM -->
+        <div class="module-banner flex-between">
+            <div>
+                <span class="badge badge-teal">CRM CLÍNICO · CUENTAS POR COBRAR · MEMBRESÍAS Y CHECKUPS</span>
+                <h1>👥 Cartera de Clientes, Paquetes Prepagados y Ficha Fiscal CFDI</h1>
+                <p>Gestión centralizada de expedientes de Nutrición, Psicología, Psiconutrición y Checkups con seguimiento de saldos y retención.</p>
+            </div>
+            <div>
+                <a href="recepcion.php#pos-caja" class="btn btn-primary">💳 Ir a Terminal POS</a>
+            </div>
+        </div>
+
         <!-- KPIS DE CARTERA DE CLIENTES -->
-        <div class="grid-4" style="margin-bottom:20px;">
+        <div class="grid-4" style="margin-bottom:22px;">
             <div class="kpi-card">
                 <div class="kpi-title">Pacientes Activos en Cartera</div>
                 <div class="kpi-value"><?= (int)$kpis['total_clientes'] ?> expedientes</div>
                 <div class="kpi-sub">Valor Histórico (LTV): $<?= number_format((float)$kpis['ltv_total'], 2) ?></div>
+                <div class="progress-track"><div class="progress-fill" style="width: 90%;"></div></div>
             </div>
             <div class="kpi-card rose">
                 <div class="kpi-title">Cuentas por Cobrar (Saldos)</div>
                 <div class="kpi-value">$<?= number_format((float)$kpis['total_por_cobrar'], 2) ?></div>
                 <div class="kpi-sub">Cobranza automatizada por WhatsApp</div>
+                <div class="progress-track"><div class="progress-fill rose" style="width: 45%;"></div></div>
             </div>
             <div class="kpi-card blue">
                 <div class="kpi-title">Sesiones y Checkups Prepagados</div>
                 <div class="kpi-value"><?= (int)$kpis['sesiones_prepagadas'] ?> disponibles</div>
                 <div class="kpi-sub">En paquetes activos de clientes</div>
+                <div class="progress-track"><div class="progress-fill blue" style="width: 78%;"></div></div>
             </div>
             <div class="kpi-card amber">
                 <div class="kpi-title">Alerta de Retención / Riesgo</div>
                 <div class="kpi-value"><?= (int)$kpis['clientes_riesgo'] ?> pacientes</div>
                 <div class="kpi-sub">Requieren contacto de seguimiento</div>
+                <div class="progress-track"><div class="progress-fill amber" style="width: 30%;"></div></div>
             </div>
         </div>
 

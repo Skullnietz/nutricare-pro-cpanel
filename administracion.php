@@ -96,27 +96,44 @@ $serviciosList = $pdo->query("SELECT * FROM catalogo_servicios ORDER BY id ASC")
             <div class="result-box">✅ Nuevo servicio / Checkup / paquete agregado al catálogo oficial de Mostrador y Portal Web.</div>
         <?php endif; ?>
 
+        <!-- BANNER EJECUTIVO DE ADMINISTRACIÓN AUTÓNOMA -->
+        <div class="module-banner flex-between">
+            <div>
+                <span class="badge badge-teal">DIRECCIÓN FINANCIERA · COMISIONES MÉDICAS · EGRESOS Y CATÁLOGO</span>
+                <h1>📊 Centro de Administración Autónoma y Rentabilidad Clínica</h1>
+                <p>Control automatizado de ingresos por especialidad, nómina de comisiones, gastos de laboratorio/checkups y arqueos de caja.</p>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <a href="facturacion.php" class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.2);">🧾 Ver CFDI Emitidos</a>
+                <a href="recepcion.php" class="btn btn-primary btn-sm">🛎️ Ver Caja Hoy</a>
+            </div>
+        </div>
+
         <!-- KPIS DE DIRECCIÓN Y ADMINISTRACIÓN AUTÓNOMA -->
-        <div class="grid-4" style="margin-bottom:20px;">
+        <div class="grid-4" style="margin-bottom:22px;">
             <div class="kpi-card">
                 <div class="kpi-title">Ingresos Brutos Cobrados</div>
                 <div class="kpi-value">$<?= number_format($ingresosBrutos, 2) ?></div>
                 <div class="kpi-sub"><?= (int)$finanzas['num_transacciones'] ?> cobros registrados en POS</div>
+                <div class="progress-track"><div class="progress-fill" style="width: 100%;"></div></div>
             </div>
             <div class="kpi-card purple">
                 <div class="kpi-title">Nómina de Comisiones Especialistas</div>
                 <div class="kpi-value">$<?= number_format($comisionesTotales, 2) ?></div>
                 <div class="kpi-sub">Retención Clínica (30%): $<?= number_format($ingresoRetenidoClinica, 2) ?></div>
+                <div class="progress-track"><div class="progress-fill purple" style="width: 71%;"></div></div>
             </div>
             <div class="kpi-card amber">
                 <div class="kpi-title">Gastos Operativos y Laboratorio</div>
                 <div class="kpi-value">$<?= number_format($totalGastos, 2) ?></div>
                 <div class="kpi-sub">Renta, Insumos, Checkups y Ads</div>
+                <div class="progress-track"><div class="progress-fill amber" style="width: 55%;"></div></div>
             </div>
             <div class="kpi-card blue">
                 <div class="kpi-title">Flujo de Caja Operativo</div>
                 <div class="kpi-value">$<?= number_format($flujoCajaOperativo, 2) ?></div>
                 <div class="kpi-sub">Balance (Ingresos - Egresos Fijos)</div>
+                <div class="progress-track"><div class="progress-fill blue" style="width: 68%;"></div></div>
             </div>
         </div>
 
