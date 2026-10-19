@@ -1,346 +1,440 @@
 <?php
+declare(strict_types=1);
 require_once __DIR__ . '/db_connection.php';
-$usuario = requireAuth();
+
 $pdo = getDB();
+$usuario = requireAuth();
+$hoy = date('Y-m-d');
+$vista = $_GET['vista'] ?? 'resumen';
+$mensajeExito = '';
+$mensajeError = '';
 
-// 1. Registrar nuevo Gasto Operativo
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['registrar_gasto']) && verify_csrf($_POST['csrf_token'] ?? '')) {
-    $folioGasto = 'GAS-' . date('Y') . '-' . rand(100, 999);
-    $categoria  = $_POST['categoria'] ?? 'insumos_clinicos';
-    $concepto   = trim($_POST['concepto']);
-    $proveedor  = trim($_POST['proveedor'] ?? '');
-    $monto      = (float)$_POST['monto'];
-    $metodo     = $_POST['metodo_pago'] ?? 'transferencia';
-    $deducible  = !empty($_POST['deducible_impuestos']) ? 1 : 0;
-    $fecha      = $_POST['fecha_gasto'] ?: date('Y-m-d');
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verify_csrf($_POST['csrf_token'] ?? '')) {
+        $mensajeError = 'Token de seguridad inválido.';
+    } else {
+        $accion = $_POST['accion'] ?? '';
 
-    $stmtG = $pdo->prepare("INSERT INTO gastos_operativos (folio_gasto, categoria, concepto, proveedor, monto, metodo_pago, deducible_impuestos, fecha_gasto, registrado_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmtG->execute([$folioGasto, $categoria, $concepto, $proveedor, $monto, $metodo, $deducible, $fecha, $usuario['id']]);
-    header("Location: administracion.php?msg=gasto_ok");
-    exit;
+        if ($accion === 'registrar_gasto') {
+            $categoria = $_POST['categoria'] ?? 'insumos_clinicos';
+            $concepto = trim($_POST['concepto'] ?? '');
+            $proveedor = trim($_POST['proveedor'] ?? '');
+            $monto = (float)($_POST['monto'] ?? 0);
+            $metodo = $_POST['metodo_pago'] ?? 'transferencia';
+            $fechaGasto = $_POST['fecha_gasto'] ?? $hoy;
+            $deducible = isset($_POST['deducible_impuestos']) ? 1 : 0;
+
+            if ($concepto !== '' && $monto > 0) {
+                $countG = (int)$pdo->query("SELECT COUNT(*) FROM gastos_operativos")->fetchColumn() + 1;
+                $folioG = 'GAS-' . date('Y') . '-' . str_pad((string)$countG, 3, '0', STR_PAD_LEFT);
+                $stmtG = $pdo->prepare("INSERT INTO gastos_operativos (folio_gasto, categoria, concepto, proveedor, monto, metodo_pago, deducible_impuestos, fecha_gasto, registrado_por) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmtG->execute([$folioG, $categoria, $concepto, $proveedor, $monto, $metodo, $deducible, $fechaGasto, $usuario['id']]);
+                $mensajeExito = "Gasto {$folioG} por $" . number_format($monto, 2) . " registrado.";
+                $vista = 'gastos';
+            }
+        }
+
+        elseif ($accion === 'guardar_servicio') {
+            $codigo = strtoupper(trim($_POST['codigo'] ?? 'SRV-' . rand(10, 99)));
+            $nombre = trim($_POST['nombre'] ?? '');
+            $area = $_POST['area'] ?? 'nutricion';
+            $descripcion = trim($_POST['descripcion'] ?? '');
+            $precio = (float)($_POST['precio'] ?? 900);
+            $sesNutri = (int)($_POST['sesiones_nutri_incluidas'] ?? 1);
+            $sesPsico = (int)($_POST['sesiones_psico_incluidas'] ?? 0);
+            $incCheckup = isset($_POST['incluye_checkup']) ? 1 : 0;
+            $duracion = (int)($_POST['duracion_minutos'] ?? 50);
+            $claveSat = $_POST['clave_prod_serv_sat'] ?? '85121800';
+
+            if ($nombre !== '' && $precio > 0) {
+                $stmtS = $pdo->prepare("INSERT INTO catalogo_servicios (codigo, nombre, area, descripcion, precio, sesiones_nutri_incluidas, sesiones_psico_incluidas, incluye_checkup, duracion_minutos, clave_prod_serv_sat, clave_unidad_sat, exento_iva, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'E48', 1, 1)");
+                $stmtS->execute([$codigo, $nombre, $area, $descripcion, $precio, $sesNutri, $sesPsico, $incCheckup, $duracion, $claveSat]);
+                $mensajeExito = "Servicio '{$nombre}' agregado al catálogo.";
+                $vista = 'catalogo';
+            }
+        }
+    }
 }
 
-// 2. Agregar o Actualizar Servicio / Checkup / Paquete en Catálogo
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['nuevo_servicio_catalogo']) && verify_csrf($_POST['csrf_token'] ?? '')) {
-    $codigo = strtoupper(trim($_POST['codigo']));
-    $nombre = trim($_POST['nombre']);
-    $area   = $_POST['area'] ?? 'checkup';
-    $desc   = trim($_POST['descripcion'] ?? '');
-    $precio = (float)$_POST['precio'];
-    $sNut   = (int)($_POST['sesiones_nutri_incluidas'] ?? 0);
-    $sPsi   = (int)($_POST['sesiones_psico_incluidas'] ?? 0);
-    $incChk = !empty($_POST['incluye_checkup']) ? 1 : 0;
-    $claveSat = $_POST['clave_prod_serv_sat'] ?: '85121800';
+$ingresosBrutos = (float)$pdo->query("SELECT COALESCE(SUM(total_pagado),0) FROM pagos_caja")->fetchColumn();
+$comisionesTotales = (float)$pdo->query("SELECT COALESCE(SUM(comision_especialista),0) FROM pagos_caja")->fetchColumn();
+$gastosTotales = (float)$pdo->query("SELECT COALESCE(SUM(monto),0) FROM gastos_operativos")->fetchColumn();
+$cuentasPorCobrar = (float)$pdo->query("SELECT COALESCE(SUM(saldo_pendiente),0) FROM pacientes")->fetchColumn();
+$retencionClinica = $ingresosBrutos - $comisionesTotales;
+$utilidadNeta = $retencionClinica - $gastosTotales;
 
-    $stmtS = $pdo->prepare("INSERT INTO catalogo_servicios (codigo, nombre, area, descripcion, precio, sesiones_nutri_incluidas, sesiones_psico_incluidas, incluye_checkup, duracion_minutos, clave_prod_serv_sat, clave_unidad_sat, exento_iva, activo) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 50, ?, 'E48', 1, 1)");
-    $stmtS->execute([$codigo, $nombre, $area, $desc, $precio, $sNut, $sPsi, $incChk, $claveSat]);
-    header("Location: administracion.php?msg=servicio_ok");
-    exit;
-}
-
-// Métricas Financieras Globales (Estado de Resultados Autónomo)
-$finanzas = $pdo->query("SELECT
-    COALESCE(SUM(total_pagado), 0) AS ingresos_brutos,
-    COALESCE(SUM(comision_especialista), 0) AS comisiones_totales,
-    COUNT(*) AS num_transacciones
-    FROM pagos_caja")->fetch();
-
-$totalGastos = (float)$pdo->query("SELECT COALESCE(SUM(monto), 0) FROM gastos_operativos")->fetchColumn();
-$ingresosBrutos = (float)$finanzas['ingresos_brutos'];
-$comisionesTotales = (float)$finanzas['comisiones_totales'];
-$ingresoRetenidoClinica = $ingresosBrutos - $comisionesTotales;
-$flujoCajaOperativo = $ingresosBrutos - $totalGastos;
-$utilidadNetaDespuesComisiones = $ingresosBrutos - $comisionesTotales - $totalGastos;
-
-// Liquidación de Comisiones por Especialista
-$comisionesPorDoctor = $pdo->query("SELECT
-    u.id, u.nombre, u.rol, u.area_clinica, u.porcentaje_comision,
-    COUNT(pg.id) AS num_cobros,
-    COALESCE(SUM(pg.total_pagado), 0) AS total_recaudado,
-    COALESCE(SUM(pg.comision_especialista), 0) AS pago_especialista,
-    COALESCE(SUM(pg.total_pagado - pg.comision_especialista), 0) AS retencion_clinica
+$nominaEspecialistas = $pdo->query("
+    SELECT u.id, u.nombre, u.titulo, u.area_clinica, u.porcentaje_comision,
+           COUNT(pg.id) AS total_cobros,
+           COALESCE(SUM(pg.total_pagado), 0) AS ingresos_generados,
+           COALESCE(SUM(pg.comision_especialista), 0) AS comision_pagar
     FROM usuarios u
     LEFT JOIN pagos_caja pg ON pg.nutriologo_id = u.id
-    WHERE u.rol IN ('nutriologo', 'psicologo')
-    GROUP BY u.id, u.nombre, u.rol, u.area_clinica, u.porcentaje_comision
-    ORDER BY total_recaudado DESC")->fetchAll();
+    WHERE u.rol IN ('nutriologo', 'psicologo') AND u.activo = 1
+    GROUP BY u.id
+    ORDER BY ingresos_generados DESC
+")->fetchAll();
 
-// Ingresos por Área / Línea de Servicio (Nutrición, Psicología, Psiconutrición, Checkup, Paquetes)
-$ingresosPorArea = $pdo->query("SELECT
-    categoria_ingreso,
-    COUNT(*) AS operaciones,
-    COALESCE(SUM(total_pagado), 0) AS monto_total
+$ingresosPorArea = $pdo->query("
+    SELECT categoria_ingreso, COUNT(*) AS operaciones, SUM(total_pagado) AS total
     FROM pagos_caja
     GROUP BY categoria_ingreso
-    ORDER BY monto_total DESC")->fetchAll();
+    ORDER BY total DESC
+")->fetchAll();
 
-$gastosList = $pdo->query("SELECT * FROM gastos_operativos ORDER BY fecha_gasto DESC, id DESC")->fetchAll();
-$cortesList = $pdo->query("SELECT c.*, u.nombre AS responsable FROM cortes_caja c LEFT JOIN usuarios u ON c.cerrado_por = u.id ORDER BY c.id DESC")->fetchAll();
-$serviciosList = $pdo->query("SELECT * FROM catalogo_servicios ORDER BY id ASC")->fetchAll();
+$gastosLista = $pdo->query("SELECT * FROM gastos_operativos ORDER BY id DESC")->fetchAll();
+$catalogoLista = $pdo->query("SELECT * FROM catalogo_servicios ORDER BY id ASC")->fetchAll();
+
+$subPills = [
+    ['label' => 'Resumen y Nómina', 'href' => 'administracion.php?vista=resumen', 'active' => ($vista === 'resumen'), 'count' => null],
+    ['label' => 'Gastos Operativos', 'href' => 'administracion.php?vista=gastos', 'active' => ($vista === 'gastos'), 'count' => count($gastosLista)],
+    ['label' => 'Catálogo de Precios', 'href' => 'administracion.php?vista=catalogo', 'active' => ($vista === 'catalogo'), 'count' => count($catalogoLista)],
+];
+
+$actionTop = '';
+if ($vista === 'gastos') {
+    $actionTop = '<button type="button" onclick="openModal(\'modalNuevoGasto\')" class="btn btn-primary btn-sm">+ Registrar Gasto</button>';
+} elseif ($vista === 'catalogo') {
+    $actionTop = '<button type="button" onclick="openModal(\'modalNuevoServicio\')" class="btn btn-primary btn-sm">+ Nuevo Servicio</button>';
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Administración Autónoma, Finanzas y Comisiones | <?= htmlspecialchars(CLINIC_NAME) ?></title>
+    <title>Administración | <?= htmlspecialchars(CLINIC_NAME) ?></title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <?php renderNavbar('administracion'); ?>
 
-    <main class="container section-pad">
-        <?php if (isset($_GET['msg']) && $_GET['msg'] === 'gasto_ok'): ?>
-            <div class="result-box">✅ Gasto operativo registrado y descontado del flujo financiero del consultorio.</div>
-        <?php elseif (isset($_GET['msg']) && $_GET['msg'] === 'servicio_ok'): ?>
-            <div class="result-box">✅ Nuevo servicio / Checkup / paquete agregado al catálogo oficial de Mostrador y Portal Web.</div>
-        <?php endif; ?>
+<?php renderAppStart('Administración y Finanzas', 'Estado de resultados, liquidación de comisiones médicas y catálogo', 'administracion', $subPills, $actionTop); ?>
 
-        <!-- BANNER EJECUTIVO DE ADMINISTRACIÓN AUTÓNOMA -->
-        <div class="module-banner flex-between">
+<?php if ($mensajeExito): ?>
+    <div class="alert alert-success"><?= htmlspecialchars($mensajeExito) ?></div>
+<?php endif; ?>
+<?php if ($mensajeError): ?>
+    <div class="alert alert-danger"><?= htmlspecialchars($mensajeError) ?></div>
+<?php endif; ?>
+
+<!-- KPI EJECUTIVOS -->
+<div class="kpi-row">
+    <div class="kpi-card">
+        <span class="kpi-label">Ingresos Cobrados en Caja</span>
+        <div class="kpi-value" style="color:var(--primary);">$<?= number_format($ingresosBrutos, 2) ?></div>
+        <div class="kpi-sub">Consultas, paquetes y checkups</div>
+    </div>
+    <div class="kpi-card">
+        <span class="kpi-label">Honorarios a Especialistas</span>
+        <div class="kpi-value">$<?= number_format($comisionesTotales, 2) ?></div>
+        <div class="kpi-sub">Retención clínica: $<?= number_format($retencionClinica, 2) ?></div>
+    </div>
+    <div class="kpi-card">
+        <span class="kpi-label">Gastos Operativos</span>
+        <div class="kpi-value" style="color:var(--warning);">$<?= number_format($gastosTotales, 2) ?></div>
+        <div class="kpi-sub">Renta, insumos, laboratorio y anuncios</div>
+    </div>
+    <div class="kpi-card">
+        <span class="kpi-label">Cuentas por Cobrar (Cartera)</span>
+        <div class="kpi-value" style="color:var(--danger);">$<?= number_format($cuentasPorCobrar, 2) ?></div>
+        <div class="kpi-sub">Saldos pendientes de pacientes</div>
+    </div>
+</div>
+
+<?php if ($vista === 'resumen'): ?>
+    <!-- =========================================================
+         VISTA 1: RESUMEN EJECUTIVO Y NÓMINA DE ESPECIALISTAS
+         ========================================================= -->
+    <div class="grid-sidebar">
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2>Nómina de Comisiones por Especialista</h2>
+                    <p>Cálculo automático de honorarios médicos y retención para el consultorio.</p>
+                </div>
+            </div>
+
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Especialista</th>
+                            <th>Cobros</th>
+                            <th>Ingresos Generados</th>
+                            <th>% Comisión</th>
+                            <th>Pago a Especialista</th>
+                            <th>Retención Clínica</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($nominaEspecialistas as $ne):
+                            $retEsp = (float)$ne['ingresos_generados'] - (float)$ne['comision_pagar'];
+                        ?>
+                            <tr>
+                                <td>
+                                    <div class="avatar-row">
+                                        <img src="<?= htmlspecialchars(getFotoEspecialista((int)$ne['id'])) ?>" alt="" class="avatar-sm">
+                                        <div>
+                                            <strong><?= htmlspecialchars($ne['nombre']) ?></strong>
+                                            <div class="text-xs text-muted"><?= htmlspecialchars(ucfirst($ne['area_clinica'])) ?></div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td><?= (int)$ne['total_cobros'] ?></td>
+                                <td><strong>$<?= number_format((float)$ne['ingresos_generados'], 2) ?></strong></td>
+                                <td><span class="badge badge-slate"><?= number_format((float)$ne['porcentaje_comision'], 0) ?>%</span></td>
+                                <td><strong style="color:var(--primary);">$<?= number_format((float)$ne['comision_pagar'], 2) ?></strong></td>
+                                <td class="text-muted">$<?= number_format($retEsp, 2) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <h2>Ingresos por Área Clínica</h2>
+                    <p>Participación en la facturación total.</p>
+                </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:14px;">
+                <?php foreach ($ingresosPorArea as $ia):
+                    $pct = $ingresosBrutos > 0 ? round(((float)$ia['total'] / $ingresosBrutos) * 100) : 0;
+                ?>
+                    <div style="padding:12px;border:1px solid var(--border);border-radius:10px;">
+                        <div class="flex-between" style="margin-bottom:6px;">
+                            <strong><?= strtoupper(htmlspecialchars($ia['categoria_ingreso'])) ?></strong>
+                            <span style="font-weight:700;color:var(--primary);">$<?= number_format((float)$ia['total'], 2) ?> (<?= $pct ?>%)</span>
+                        </div>
+                        <div style="height:6px;background:var(--border);border-radius:99px;overflow:hidden;">
+                            <div style="height:100%;width:<?= $pct ?>%;background:var(--primary);"></div>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+
+<?php elseif ($vista === 'gastos'): ?>
+    <!-- =========================================================
+         VISTA 2: GASTOS OPERATIVOS DEL CONSULTORIO
+         ========================================================= -->
+    <div class="card">
+        <div class="card-header">
             <div>
-                <span class="badge badge-teal">DIRECCIÓN FINANCIERA · COMISIONES MÉDICAS · EGRESOS Y CATÁLOGO</span>
-                <h1>📊 Centro de Administración Autónoma y Rentabilidad Clínica</h1>
-                <p>Control automatizado de ingresos por especialidad, nómina de comisiones, gastos de laboratorio/checkups y arqueos de caja.</p>
-            </div>
-            <div style="display:flex; gap:8px;">
-                <a href="facturacion.php" class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.2);">🧾 Ver CFDI Emitidos</a>
-                <a href="recepcion.php" class="btn btn-primary btn-sm">🛎️ Ver Caja Hoy</a>
+                <h2>Gastos Operativos y Proveedores</h2>
+                <p>Control de egresos de renta, laboratorio de checkups, insumos y publicidad.</p>
             </div>
         </div>
 
-        <!-- KPIS DE DIRECCIÓN Y ADMINISTRACIÓN AUTÓNOMA -->
-        <div class="grid-4" style="margin-bottom:22px;">
-            <div class="kpi-card">
-                <div class="kpi-title">Ingresos Brutos Cobrados</div>
-                <div class="kpi-value">$<?= number_format($ingresosBrutos, 2) ?></div>
-                <div class="kpi-sub"><?= (int)$finanzas['num_transacciones'] ?> cobros registrados en POS</div>
-                <div class="progress-track"><div class="progress-fill" style="width: 100%;"></div></div>
-            </div>
-            <div class="kpi-card purple">
-                <div class="kpi-title">Nómina de Comisiones Especialistas</div>
-                <div class="kpi-value">$<?= number_format($comisionesTotales, 2) ?></div>
-                <div class="kpi-sub">Retención Clínica (30%): $<?= number_format($ingresoRetenidoClinica, 2) ?></div>
-                <div class="progress-track"><div class="progress-fill purple" style="width: 71%;"></div></div>
-            </div>
-            <div class="kpi-card amber">
-                <div class="kpi-title">Gastos Operativos y Laboratorio</div>
-                <div class="kpi-value">$<?= number_format($totalGastos, 2) ?></div>
-                <div class="kpi-sub">Renta, Insumos, Checkups y Ads</div>
-                <div class="progress-track"><div class="progress-fill amber" style="width: 55%;"></div></div>
-            </div>
-            <div class="kpi-card blue">
-                <div class="kpi-title">Flujo de Caja Operativo</div>
-                <div class="kpi-value">$<?= number_format($flujoCajaOperativo, 2) ?></div>
-                <div class="kpi-sub">Balance (Ingresos - Egresos Fijos)</div>
-                <div class="progress-track"><div class="progress-fill blue" style="width: 68%;"></div></div>
-            </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Folio / Fecha</th>
+                        <th>Categoría</th>
+                        <th>Concepto y Proveedor</th>
+                        <th>Método de Pago</th>
+                        <th class="text-right">Monto</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($gastosLista as $g): ?>
+                        <tr>
+                            <td>
+                                <strong><?= htmlspecialchars($g['folio_gasto']) ?></strong>
+                                <div class="text-xs text-muted"><?= htmlspecialchars($g['fecha_gasto']) ?></div>
+                            </td>
+                            <td><span class="badge badge-slate"><?= strtoupper(str_replace('_', ' ', $g['categoria'])) ?></span></td>
+                            <td>
+                                <strong><?= htmlspecialchars($g['concepto']) ?></strong>
+                                <div class="text-xs text-muted"><?= htmlspecialchars($g['proveedor'] ?? '') ?></div>
+                            </td>
+                            <td><?= strtoupper(str_replace('_', ' ', $g['metodo_pago'])) ?></td>
+                            <td class="text-right"><strong style="color:var(--danger);">-$<?= number_format((float)$g['monto'], 2) ?></strong></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
         </div>
+    </div>
 
-        <div class="grid-2">
-            <!-- TABLA DE LIQUIDACIÓN DE COMISIONES POR ESPECIALISTA -->
-            <div class="card">
-                <h3>👩‍⚕️👨‍⚕️ Liquidación Autónoma de Comisiones por Especialista</h3>
-                <p class="muted" style="margin-bottom:10px;">Cálculo automático de honorarios para Nutriólogos y Psicólogos según lo recaudado en Mostrador.</p>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Especialista</th>
-                                <th>Área</th>
-                                <th>% Com.</th>
-                                <th>Recaudado</th>
-                                <th>Pago a Doctor</th>
-                                <th>Retención Clínica</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($comisionesPorDoctor as $cd): ?>
-                            <tr>
-                                <td><strong><?= htmlspecialchars($cd['nombre']) ?></strong><br><small class="muted"><?= (int)$cd['num_cobros'] ?> atenciones</small></td>
-                                <td><span class="badge <?= $cd['rol'] === 'psicologo' ? 'badge-purple' : 'badge-teal' ?>"><?= strtoupper(htmlspecialchars($cd['area_clinica'])) ?></span></td>
-                                <td><?= (float)$cd['porcentaje_comision'] ?>%</td>
-                                <td>$<?= number_format((float)$cd['total_recaudado'], 2) ?></td>
-                                <td><strong style="color:var(--primary);">$<?= number_format((float)$cd['pago_especialista'], 2) ?></strong></td>
-                                <td><strong>$<?= number_format((float)$cd['retencion_clinica'], 2) ?></strong></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
+    <!-- MODAL NUEVO GASTO -->
+    <div id="modalNuevoGasto" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3>Registrar Gasto Operativo</h3>
+                <button type="button" class="modal-close" onclick="closeModal('modalNuevoGasto')">&times;</button>
             </div>
+            <form method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+                    <input type="hidden" name="accion" value="registrar_gasto">
 
-            <!-- INGRESOS POR LÍNEA DE SERVICIO Y HISTORIAL DE CORTES DE CAJA -->
-            <div class="card">
-                <h3>📈 Ingresos por Unidad de Negocio (Nutrición, Psicología, Checkups y Paquetes)</h3>
-                <div class="table-wrap" style="margin-bottom:16px;">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Línea de Servicio</th>
-                                <th>Transacciones</th>
-                                <th>Ingresos Cobrados</th>
-                                <th>Participación</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($ingresosPorArea as $ia):
-                                $pct = $ingresosBrutos > 0 ? round(((float)$ia['monto_total'] / $ingresosBrutos) * 100, 1) : 0;
-                            ?>
-                            <tr>
-                                <td><span class="badge badge-blue"><?= strtoupper(htmlspecialchars($ia['categoria_ingreso'])) ?></span></td>
-                                <td><?= (int)$ia['operaciones'] ?> cobros</td>
-                                <td><strong>$<?= number_format((float)$ia['monto_total'], 2) ?></strong></td>
-                                <td><strong><?= $pct ?>%</strong></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-
-                <h4>🔒 Últimos Cortes de Caja y Arqueos Auditados</h4>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Fecha / Turno</th><th>Efectivo Esperado</th><th>Efectivo Contado</th><th>Diferencia</th><th>Total Neto Día</th></tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($cortesList as $cl): ?>
-                            <tr>
-                                <td><strong><?= htmlspecialchars($cl['fecha_corte']) ?></strong><br><small class="muted"><?= htmlspecialchars($cl['turno']) ?></small></td>
-                                <td>$<?= number_format((float)$cl['efectivo_esperado'], 2) ?></td>
-                                <td>$<?= number_format((float)$cl['efectivo_contado_fisico'], 2) ?></td>
-                                <td>
-                                    <?php if ((float)$cl['diferencia_arqueo'] == 0.0): ?>
-                                        <span class="badge badge-teal">Cuadrado ($0)</span>
-                                    <?php else: ?>
-                                        <span class="badge badge-rose">$<?= number_format((float)$cl['diferencia_arqueo'], 2) ?></span>
-                                    <?php endif; ?>
-                                </td>
-                                <td><strong>$<?= number_format((float)$cl['total_neto_dia'], 2) ?></strong></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <!-- CONTROL DE GASTOS OPERATIVOS Y PROVEEDORES DE CHECKUPS -->
-        <div class="grid-2">
-            <div class="card">
-                <h3>💸 Registrar Gasto Operativo, Insumos o Laboratorio de Checkups</h3>
-                <form method="POST" class="grid-2">
-                    <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-                    <input type="hidden" name="registrar_gasto" value="1">
-
-                    <label>Categoría del Egreso *
-                        <select name="categoria" required>
-                            <option value="laboratorio_checkups">🔬 Laboratorio Subrogado / Reactivos Checkups</option>
-                            <option value="insumos_clinicos">🩺 Insumos Clínicos, InBody y Papelería</option>
-                            <option value="renta_consultorio">🏢 Renta de Consultorios y Mantenimiento</option>
-                            <option value="marketing_ads">📣 Publicidad Digital (Meta Ads / Google Ads)</option>
-                            <option value="servicios_basicos">⚡ Internet, Luz, Agua y Telefonía</option>
-                            <option value="comisiones_especialistas">👩‍⚕️ Pago de Comisiones a Especialistas</option>
-                        </select>
-                    </label>
-                    <label>Monto del Gasto ($ MXN) *
-                        <input type="number" step="0.01" name="monto" placeholder="1500.00" required>
-                    </label>
-                    <label style="grid-column: span 2;">Concepto / Descripción del Gasto *
-                        <input type="text" name="concepto" placeholder="Ej. Compra de tiras reactivas y procesamiento de 5 Checkups 360°" required>
-                    </label>
-                    <label>Proveedor / Beneficiario
-                        <input type="text" name="proveedor" placeholder="Ej. Laboratorio Clínico / Distribuidora Médica">
-                    </label>
-                    <label>Origen de Fondos *
-                        <select name="metodo_pago">
-                            <option value="transferencia">🏦 Transferencia Bancaria Empresarial</option>
-                            <option value="efectivo_caja">💵 Efectivo de Caja Chica (Descuenta del Arqueo)</option>
-                            <option value="tarjeta_corporativa">💳 Tarjeta Corporativa</option>
-                        </select>
-                    </label>
-                    <label>Fecha del Gasto *
-                        <input type="date" name="fecha_gasto" value="<?= date('Y-m-d') ?>" required>
-                    </label>
-                    <label style="display:flex; align-items:center; gap:8px; padding-top:22px;">
-                        <input type="checkbox" name="deducible_impuestos" value="1" checked style="width:18px; height:18px; margin:0;">
-                        <span>Cuenta con CFDI de Gasto Deducible</span>
-                    </label>
-                    <div style="grid-column: span 2;">
-                        <button type="submit" class="btn btn-amber" style="width:100%;">📥 Registrar Egreso Operativo</button>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Categoría *</label>
+                            <select name="categoria" class="form-control">
+                                <option value="renta_consultorio">Renta de Consultorios</option>
+                                <option value="laboratorio_checkups">Laboratorio de Checkups</option>
+                                <option value="insumos_clinicos">Insumos Clínicos y Sala de Espera</option>
+                                <option value="marketing_ads">Publicidad y Captación</option>
+                                <option value="software_servicios">Software y Servicios</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Fecha del gasto *</label>
+                            <input type="date" name="fecha_gasto" class="form-control" value="<?= $hoy ?>" required>
+                        </div>
                     </div>
-                </form>
 
-                <div class="table-wrap" style="margin-top:14px; max-height:220px; overflow-y:auto;">
-                    <table>
-                        <thead>
-                            <tr><th>Folio / Fecha</th><th>Categoría / Concepto</th><th>Método</th><th>Monto</th></tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($gastosList as $g): ?>
-                            <tr>
-                                <td><strong><?= htmlspecialchars($g['folio_gasto']) ?></strong><br><small class="muted"><?= htmlspecialchars($g['fecha_gasto']) ?></small></td>
-                                <td>
-                                    <span class="badge badge-slate"><?= htmlspecialchars($g['categoria']) ?></span><br>
-                                    <small><?= htmlspecialchars($g['concepto']) ?></small>
-                                </td>
-                                <td><small><?= htmlspecialchars($g['metodo_pago']) ?></small></td>
-                                <td><strong style="color:var(--rose);">-$<?= number_format((float)$g['monto'], 2) ?></strong></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            <!-- GESTIÓN DEL CATÁLOGO DE SERVICIOS, CHECKUPS Y PAQUETES -->
-            <div class="card">
-                <h3>🏷️ Configurar Catálogo de Consultas, Checkups 360° y Paquetes</h3>
-                <form method="POST" class="grid-2">
-                    <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-                    <input type="hidden" name="nuevo_servicio_catalogo" value="1">
-
-                    <label>Código Interno *
-                        <input type="text" name="codigo" placeholder="Ej. CHK-EJEC" required>
-                    </label>
-                    <label>Área Clínica *
-                        <select name="area">
-                            <option value="checkup">🔬 Checkup Médico Integral</option>
-                            <option value="paquete">📦 Paquete / Membresía Prepagada</option>
-                            <option value="psiconutricion">🤝 Psiconutrición Interdisciplinaria</option>
-                            <option value="nutricion">🥗 Nutrición Clínica / Deportiva</option>
-                            <option value="psicologia">🧠 Psicología Clínica / TCC</option>
-                        </select>
-                    </label>
-                    <label style="grid-column: span 2;">Nombre Comercial del Servicio / Checkup *
-                        <input type="text" name="nombre" placeholder="Ej. Checkup Ejecutivo Antiestrés + Cortisol + InBody" required>
-                    </label>
-                    <label style="grid-column: span 2;">Descripción para Portal Web y Recibos
-                        <input type="text" name="descripcion" placeholder="Incluye signos vitales, perfil lipídico, cortisol y consulta">
-                    </label>
-                    <label>Precio de Lista ($ MXN) *
-                        <input type="number" step="0.01" name="precio" value="1850.00" required>
-                    </label>
-                    <label>Clave SAT CFDI 4.0
-                        <input type="text" name="clave_prod_serv_sat" value="85121800">
-                    </label>
-                    <label>Sesiones Nutrición Incluidas
-                        <input type="number" name="sesiones_nutri_incluidas" value="1">
-                    </label>
-                    <label>Sesiones Psicología Incluidas
-                        <input type="number" name="sesiones_psico_incluidas" value="1">
-                    </label>
-                    <label style="grid-column: span 2; display:flex; align-items:center; gap:8px;">
-                        <input type="checkbox" name="incluye_checkup" value="1" checked style="width:18px; height:18px; margin:0;">
-                        <span>🔬 Incluye Checkup de Laboratorio / Signos Vitales (Requiere ayuno en agenda)</span>
-                    </label>
-                    <div style="grid-column: span 2;">
-                        <button type="submit" class="btn btn-primary" style="width:100%;">➕ Publicar en Catálogo de Mostrador y Reserva Online</button>
+                    <div class="form-group">
+                        <label>Concepto *</label>
+                        <input type="text" name="concepto" class="form-control" placeholder="Ej. Compra de tiras reactivas y hojas InBody" required>
                     </div>
-                </form>
+
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label>Proveedor</label>
+                            <input type="text" name="proveedor" class="form-control" placeholder="Nombre del proveedor">
+                        </div>
+                        <div class="form-group">
+                            <label>Monto ($) *</label>
+                            <input type="number" step="0.01" name="monto" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Origen de pago</label>
+                            <select name="metodo_pago" class="form-control">
+                                <option value="transferencia">Transferencia Bancaria</option>
+                                <option value="efectivo_caja">Efectivo de Caja Chica</option>
+                                <option value="tarjeta_corporativa">Tarjeta Corporativa</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('modalNuevoGasto')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Gasto</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+<?php elseif ($vista === 'catalogo'): ?>
+    <!-- =========================================================
+         VISTA 3: CATÁLOGO DE SERVICIOS, PAQUETES Y CHECKUPS
+         ========================================================= -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h2>Catálogo de Consultas, Checkups y Paquetes</h2>
+                <p>Estos precios alimentan automáticamente el portal web, el cobro en caja POS y la facturación CFDI.</p>
             </div>
         </div>
-    </main>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Código</th>
+                        <th>Servicio o Paquete</th>
+                        <th>Área</th>
+                        <th>Sesiones Incluidas</th>
+                        <th>Clave SAT</th>
+                        <th class="text-right">Precio</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($catalogoLista as $cs): ?>
+                        <tr>
+                            <td><strong><?= htmlspecialchars($cs['codigo']) ?></strong></td>
+                            <td>
+                                <strong><?= htmlspecialchars($cs['nombre']) ?></strong>
+                                <div class="text-xs text-muted"><?= htmlspecialchars($cs['descripcion']) ?></div>
+                            </td>
+                            <td><span class="badge badge-teal"><?= strtoupper(htmlspecialchars($cs['area'])) ?></span></td>
+                            <td class="text-xs">
+                                <?= (int)$cs['sesiones_nutri_incluidas'] ?> Nutri · <?= (int)$cs['sesiones_psico_incluidas'] ?> Psico · <?= (int)$cs['incluye_checkup'] ? '1 Checkup' : '0 Checkup' ?>
+                            </td>
+                            <td class="text-xs text-muted"><?= htmlspecialchars($cs['clave_prod_serv_sat']) ?></td>
+                            <td class="text-right"><strong style="color:var(--primary);">$<?= number_format((float)$cs['precio'], 2) ?></strong></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- MODAL NUEVO SERVICIO -->
+    <div id="modalNuevoServicio" class="modal-backdrop">
+        <div class="modal-dialog">
+            <div class="modal-header">
+                <h3>Agregar Servicio o Paquete al Catálogo</h3>
+                <button type="button" class="modal-close" onclick="closeModal('modalNuevoServicio')">&times;</button>
+            </div>
+            <form method="POST">
+                <div class="modal-body">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+                    <input type="hidden" name="accion" value="guardar_servicio">
+
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label>Código interno *</label>
+                            <input type="text" name="codigo" class="form-control" placeholder="CHK-EXEC" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Área *</label>
+                            <select name="area" class="form-control">
+                                <option value="nutricion">Nutrición</option>
+                                <option value="psicologia">Psicología</option>
+                                <option value="psiconutricion">Psiconutrición</option>
+                                <option value="checkup">Checkup Médico</option>
+                                <option value="paquete">Paquete Integral</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Precio ($) *</label>
+                            <input type="number" step="0.01" name="precio" class="form-control" placeholder="1500.00" required>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Nombre comercial del servicio *</label>
+                        <input type="text" name="nombre" class="form-control" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Descripción breve</label>
+                        <input type="text" name="descripcion" class="form-control">
+                    </div>
+
+                    <div class="form-row-3">
+                        <div class="form-group">
+                            <label>Sesiones Nutrición</label>
+                            <input type="number" name="sesiones_nutri_incluidas" class="form-control" value="1">
+                        </div>
+                        <div class="form-group">
+                            <label>Sesiones Psicología</label>
+                            <input type="number" name="sesiones_psico_incluidas" class="form-control" value="0">
+                        </div>
+                        <div class="form-group">
+                            <label>Duración (min)</label>
+                            <input type="number" name="duracion_minutos" class="form-control" value="50">
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline" onclick="closeModal('modalNuevoServicio')">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Guardar Servicio</button>
+                </div>
+            </form>
+        </div>
+    </div>
+<?php endif; ?>
+
+<?php renderAppEnd(); ?>
 </body>
 </html>

@@ -1,588 +1,744 @@
 <?php
+declare(strict_types=1);
 require_once __DIR__ . '/db_connection.php';
-$usuario = requireAuth();
+
 $pdo = getDB();
+$usuario = requireAuth();
+$hoy = date('Y-m-d');
 
-$pacienteId = (int)($_GET['paciente_id'] ?? 1);
-$tabActiva  = $_GET['tab'] ?? 'nutricion';
+$pacienteId = isset($_GET['paciente_id']) ? (int)$_GET['paciente_id'] : 1;
+$tabActiva = $_GET['tab'] ?? 'nutricion';
+$mensajeExito = '';
+$mensajeError = '';
 
-$pacientesList = $pdo->query("SELECT id, folio_expediente, nombre_completo FROM pacientes ORDER BY id ASC")->fetchAll();
-$stmtPac = $pdo->prepare("SELECT p.*, u1.nombre AS nutriologo_nombre, u2.nombre AS psicologo_nombre
-                          FROM pacientes p
-                          LEFT JOIN usuarios u1 ON p.nutriologo_id = u1.id
-                          LEFT JOIN usuarios u2 ON p.psicologo_id = u2.id
-                          WHERE p.id = ?");
-$stmtPac->execute([$pacienteId]);
-$paciente = $stmtPac->fetch();
-if (!$paciente && !empty($pacientesList)) {
-    $pacienteId = (int)$pacientesList[0]['id'];
-    $stmtPac->execute([$pacienteId]);
-    $paciente = $stmtPac->fetch();
-}
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verify_csrf($_POST['csrf_token'] ?? '')) {
+        $mensajeError = 'Token de seguridad inválido.';
+    } else {
+        $accion = $_POST['accion'] ?? '';
+        $pacienteId = (int)($_POST['paciente_id'] ?? $pacienteId);
 
-// 1. Guardar Evaluación Nutricional + Antropometría ISAK + Plan SMAE
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_consulta_nutricion']) && $paciente && verify_csrf($_POST['csrf_token'] ?? '')) {
-    $edad = calcularEdad($paciente['fecha_nacimiento']);
-    $peso = (float)$_POST['peso_kg'];
-    $talla = (float)$_POST['talla_cm'];
-    $imc = $talla > 0 ? round($peso / pow($talla / 100, 2), 2) : 0;
-    $pctGrasa = !empty($_POST['porcentaje_grasa']) ? (float)$_POST['porcentaje_grasa'] : null;
-    $pctMusc = !empty($_POST['porcentaje_musculo']) ? (float)$_POST['porcentaje_musculo'] : null;
-    $masaGrasa = $pctGrasa ? round($peso * ($pctGrasa / 100), 2) : null;
-    $masaMagra = $masaGrasa ? round($peso - $masaGrasa, 2) : null;
-    $visceral = !empty($_POST['grasa_visceral']) ? (int)$_POST['grasa_visceral'] : null;
-    $cintura = !empty($_POST['cintura_cm']) ? (float)$_POST['cintura_cm'] : null;
-    $cadera = !empty($_POST['cadera_cm']) ? (float)$_POST['cadera_cm'] : null;
-    $icc = ($cintura && $cadera) ? round($cintura / $cadera, 2) : null;
-    $ict = ($cintura && $talla) ? round($cintura / $talla, 2) : null;
-    $pTri = (float)($_POST['pliegue_tricipital_mm'] ?? 0);
-    $pBic = (float)($_POST['pliegue_bicipital_mm'] ?? 0);
-    $pSub = (float)($_POST['pliegue_subescapular_mm'] ?? 0);
-    $pSup = (float)($_POST['pliegue_suprailiaco_mm'] ?? 0);
-    $sumaPliegues = ($pTri + $pBic + $pSub + $pSup) > 0 ? ($pTri + $pBic + $pSub + $pSup) : null;
-    $formula = $_POST['formula_usada'] ?? 'Mifflin-St Jeor';
-    $energia = calcularGastoEnergetico($peso, $talla, $edad, $paciente['sexo'], $paciente['nivel_actividad_fisica'], $formula, $masaMagra);
-    $metaKcal = (int)($_POST['meta_kcal'] ?: $energia['get']);
-    $pctP = (int)($_POST['pct_proteina'] ?? 25);
-    $pctC = (int)($_POST['pct_carbohidratos'] ?? 45);
-    $pctL = (int)($_POST['pct_lipidos'] ?? 30);
+        if ($accion === 'guardar_nutricion') {
+            $peso = (float)($_POST['peso_kg'] ?? 70);
+            $talla = (float)($_POST['talla_cm'] ?? 165);
+            $grasaPct = (float)($_POST['porcentaje_grasa'] ?? 28);
+            $musculoPct = (float)($_POST['porcentaje_musculo'] ?? 32);
+            $visceral = (int)($_POST['grasa_visceral'] ?? 6);
+            $cintura = (float)($_POST['cintura_cm'] ?? 80);
+            $cadera = (float)($_POST['cadera_cm'] ?? 98);
+            $pTri = (float)($_POST['pliegue_tricipital_mm'] ?? 15);
+            $pBic = (float)($_POST['pliegue_bicipital_mm'] ?? 8);
+            $pSub = (float)($_POST['pliegue_subescapular_mm'] ?? 14);
+            $pSup = (float)($_POST['pliegue_suprailiaco_mm'] ?? 16);
+            $formula = $_POST['formula_usada'] ?? 'Mifflin-St Jeor';
+            $metaKcal = (int)($_POST['meta_kcal'] ?? 1800);
+            $pctPro = (int)($_POST['pct_proteina'] ?? 25);
+            $pctCho = (int)($_POST['pct_carbohidratos'] ?? 45);
+            $pctLip = (int)($_POST['pct_lipidos'] ?? 30);
+            $diag = trim($_POST['diagnostico_nutricional'] ?? '');
 
-    $stmtIns = $pdo->prepare("INSERT INTO consultas_antropometria (paciente_id, nutriologo_id, fecha_consulta, peso_kg, talla_cm, imc, porcentaje_grasa, porcentaje_musculo, masa_grasa_kg, masa_magra_kg, grasa_visceral, cintura_cm, cadera_cm, icc, ict, pliegue_tricipital_mm, pliegue_bicipital_mm, pliegue_subescapular_mm, pliegue_suprailiaco_mm, suma_4_pliegues_mm, formula_usada, tmb_kcal, get_kcal, meta_kcal, pct_proteina, pct_carbohidratos, pct_lipidos, diagnostico_nutricional) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmtIns->execute([$pacienteId, $usuario['id'], date('Y-m-d'), $peso, $talla, $imc, $pctGrasa, $pctMusc, $masaGrasa, $masaMagra, $visceral, $cintura, $cadera, $icc, $ict, $pTri ?: null, $pBic ?: null, $pSub ?: null, $pSup ?: null, $sumaPliegues, $formula, $energia['tmb'], $energia['get'], $metaKcal, $pctP, $pctC, $pctL, trim($_POST['diagnostico_nutricional'] ?? '')]);
+            $stmtP = $pdo->prepare("SELECT * FROM pacientes WHERE id = ?");
+            $stmtP->execute([$pacienteId]);
+            $pac = $stmtP->fetch();
 
-    // Si se llenó el Plan de Alimentación SMAE, guardarlo también
-    if (!empty($_POST['nombre_plan']) && !empty($_POST['menu_desayuno'])) {
-        $protG = (int)round(($metaKcal * ($pctP / 100)) / 4);
-        $carbG = (int)round(($metaKcal * ($pctC / 100)) / 4);
-        $lipG  = (int)round(($metaKcal * ($pctL / 100)) / 9);
-        $aguaMl = (int)round($peso * 35);
+            $tallaM = max(1.0, $talla / 100.0);
+            $imc = round($peso / ($tallaM * $tallaM), 2);
+            $masaGrasaKg = round($peso * ($grasaPct / 100.0), 2);
+            $masaMagraKg = round($peso - $masaGrasaKg, 2);
+            $icc = $cadera > 0 ? round($cintura / $cadera, 2) : 0.80;
+            $ict = $talla > 0 ? round($cintura / $talla, 2) : 0.48;
+            $sumaPliegues = round($pTri + $pBic + $pSub + $pSup, 1);
 
-        $stmtPlan = $pdo->prepare("INSERT INTO planes_alimentacion (paciente_id, nutriologo_id, nombre_plan, kcal_objetivo, proteina_g, carbohidratos_g, lipidos_g, agua_ml, eq_verduras, eq_frutas, eq_cereales_sg, eq_leguminosas, eq_aoa_bajo, eq_leche_semi, eq_grasas_sp, eq_grasas_cp, menu_desayuno, menu_colacion_1, menu_comida, menu_colacion_2, menu_cena, recomendaciones_generales) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmtPlan->execute([
-            $pacienteId, $usuario['id'], trim($_POST['nombre_plan']), $metaKcal, $protG, $carbG, $lipG, $aguaMl,
-            (float)($_POST['eq_verduras'] ?? 5), (float)($_POST['eq_frutas'] ?? 3), (float)($_POST['eq_cereales_sg'] ?? 5),
-            (float)($_POST['eq_leguminosas'] ?? 1), (float)($_POST['eq_aoa_bajo'] ?? 6), (float)($_POST['eq_leche_semi'] ?? 1),
-            (float)($_POST['eq_grasas_sp'] ?? 4), (float)($_POST['eq_grasas_cp'] ?? 2),
-            trim($_POST['menu_desayuno']), trim($_POST['menu_colacion_1'] ?? ''), trim($_POST['menu_comida'] ?? ''),
-            trim($_POST['menu_colacion_2'] ?? ''), trim($_POST['menu_cena'] ?? ''), trim($_POST['recomendaciones_generales'] ?? '')
-        ]);
+            $edad = calcularEdad($pac['fecha_nacimiento'] ?? '1992-01-01');
+            $sexo = $pac['sexo'] ?? 'F';
+            $act = $pac['nivel_actividad_fisica'] ?? 'moderado';
+            $gasto = calcularGastoEnergetico($peso, $talla, $edad, $sexo, $act, $formula, $masaMagraKg);
+
+            $stmtIns = $pdo->prepare("INSERT INTO consultas_antropometria (paciente_id, nutriologo_id, fecha_consulta, peso_kg, talla_cm, imc, porcentaje_grasa, porcentaje_musculo, masa_grasa_kg, masa_magra_kg, grasa_visceral, cintura_cm, cadera_cm, icc, ict, pliegue_tricipital_mm, pliegue_bicipital_mm, pliegue_subescapular_mm, pliegue_suprailiaco_mm, suma_4_pliegues_mm, formula_usada, tmb_kcal, get_kcal, meta_kcal, pct_proteina, pct_carbohidratos, pct_lipidos, diagnostico_nutricional) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtIns->execute([
+                $pacienteId, 1, $hoy, $peso, $talla, $imc, $grasaPct, $musculoPct, $masaGrasaKg, $masaMagraKg,
+                $visceral, $cintura, $cadera, $icc, $ict, $pTri, $pBic, $pSub, $pSup, $sumaPliegues,
+                $formula, $gasto['tmb'], $gasto['get'], $metaKcal, $pctPro, $pctCho, $pctLip, $diag
+            ]);
+
+            if (!empty($_POST['nombre_plan'])) {
+                $proG = (int)round(($metaKcal * ($pctPro / 100)) / 4);
+                $choG = (int)round(($metaKcal * ($pctCho / 100)) / 4);
+                $lipG = (int)round(($metaKcal * ($pctLip / 100)) / 9);
+                $stmtPlan = $pdo->prepare("INSERT INTO planes_alimentacion (paciente_id, nutriologo_id, nombre_plan, kcal_objetivo, proteina_g, carbohidratos_g, lipidos_g, agua_ml, eq_verduras, eq_frutas, eq_cereales_sg, eq_leguminosas, eq_aoa_bajo, eq_leche_semi, eq_grasas_sp, eq_grasas_cp, menu_desayuno, menu_colacion_1, menu_comida, menu_colacion_2, menu_cena, recomendaciones_generales) VALUES (?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmtPlan->execute([
+                    $pacienteId,
+                    trim($_POST['nombre_plan']),
+                    $metaKcal, $proG, $choG, $lipG,
+                    (int)($_POST['agua_ml'] ?? 2500),
+                    (float)($_POST['eq_verduras'] ?? 5),
+                    (float)($_POST['eq_frutas'] ?? 3),
+                    (float)($_POST['eq_cereales_sg'] ?? 5),
+                    (float)($_POST['eq_leguminosas'] ?? 1),
+                    (float)($_POST['eq_aoa_bajo'] ?? 6),
+                    (float)($_POST['eq_leche_semi'] ?? 1),
+                    (float)($_POST['eq_grasas_sp'] ?? 4),
+                    (float)($_POST['eq_grasas_cp'] ?? 2),
+                    trim($_POST['menu_desayuno'] ?? ''),
+                    trim($_POST['menu_colacion_1'] ?? ''),
+                    trim($_POST['menu_comida'] ?? ''),
+                    trim($_POST['menu_colacion_2'] ?? ''),
+                    trim($_POST['menu_cena'] ?? ''),
+                    trim($_POST['recomendaciones_generales'] ?? '')
+                ]);
+            }
+
+            $mensajeExito = "Evaluación antropométrica (IMC {$imc}) y plan nutricional guardados.";
+            $tabActiva = 'historial';
+        }
+
+        elseif ($accion === 'guardar_psicologia') {
+            $enfoque = trim($_POST['enfoque_terapeutico'] ?? 'Cognitivo-Conductual (TCC)');
+            $phq9 = (int)($_POST['phq9_depresion'] ?? 5);
+            $gad7 = (int)($_POST['gad7_ansiedad'] ?? 7);
+            $bes = (int)($_POST['bes_atracon'] ?? 10);
+            $estres = (int)($_POST['nivel_estres'] ?? 5);
+            $sueno = (float)($_POST['calidad_sueno_hrs'] ?? 7.0);
+            $riesgo = $_POST['riesgo_clinico'] ?? 'bajo';
+            $examen = trim($_POST['estado_mental_examen'] ?? '');
+            $soap = trim($_POST['notas_soap'] ?? '');
+            $conducta = trim($_POST['conducta_alimentaria_emocional'] ?? '');
+            $tareas = trim($_POST['tareas_terapeuticas'] ?? '');
+            $acuerdos = trim($_POST['acuerdos_interdisciplinarios'] ?? '');
+
+            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM consultas_psicologia WHERE paciente_id = ?");
+            $stmtCount->execute([$pacienteId]);
+            $numSesion = (int)$stmtCount->fetchColumn() + 1;
+
+            $stmtIns = $pdo->prepare("INSERT INTO consultas_psicologia (paciente_id, psicologo_id, fecha_sesion, numero_sesion, modalidad_sesion, enfoque_terapeutico, phq9_depresion, gad7_ansiedad, bes_atracon, nivel_estres, calidad_sueno_hrs, riesgo_clinico, estado_mental_examen, notas_soap, conducta_alimentaria_emocional, tareas_terapeuticas, acuerdos_interdisciplinarios) VALUES (?, 3, ?, ?, 'psicoterapia_individual', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtIns->execute([
+                $pacienteId, $hoy, $numSesion, $enfoque, $phq9, $gad7, $bes, $estres, $sueno,
+                $riesgo, $examen, $soap, $conducta, $tareas, $acuerdos
+            ]);
+
+            $mensajeExito = "Sesión psicológica #{$numSesion} registrada en el expediente.";
+            $tabActiva = 'historial';
+        }
+
+        elseif ($accion === 'guardar_checkup') {
+            $tipoCheckup = $_POST['tipo_checkup'] ?? 'Checkup Integral Mente-Cuerpo 360°';
+            $paSis = (int)($_POST['presion_sistolica'] ?? 115);
+            $paDia = (int)($_POST['presion_diastolica'] ?? 75);
+            $fc = (int)($_POST['frecuencia_cardiaca'] ?? 68);
+            $temp = (float)($_POST['temperatura_c'] ?? 36.5);
+            $spo2 = (int)($_POST['spo2_oxigenacion'] ?? 98);
+            $glucosa = (float)($_POST['glucosa_ayuno_mg'] ?? 90);
+            $insulina = (float)($_POST['insulina_basal_uui'] ?? 8.5);
+            $hba1c = (float)($_POST['hba1c_pct'] ?? 5.2);
+            $colesterol = (float)($_POST['colesterol_total_mg'] ?? 180);
+            $trigliceridos = (float)($_POST['trigliceridos_mg'] ?? 115);
+            $hdl = (float)($_POST['hdl_mg'] ?? 55);
+            $ldl = (float)($_POST['ldl_mg'] ?? 100);
+            $tsh = (float)($_POST['tsh_tiroides'] ?? 2.1);
+            $cortisol = (float)($_POST['cortisol_matutino'] ?? 14.0);
+            $vitD = (float)($_POST['vitamina_d_ng'] ?? 32.0);
+            $interp = trim($_POST['interpretacion_biomarcadores'] ?? '');
+            $planAccion = trim($_POST['plan_accion_checkup'] ?? '');
+
+            $homa = calcularHomaIR($glucosa, $insulina);
+            $semaforoMet = ($homa !== null && $homa >= 2.9) ? 'alerta' : (($homa !== null && $homa >= 2.0) ? 'precaucion' : 'optimo');
+            $semaforoPsi = ($cortisol > 19.0) ? 'precaucion' : 'optimo';
+            $score = ($semaforoMet === 'optimo') ? 92 : (($semaforoMet === 'precaucion') ? 84 : 72);
+
+            $countChk = (int)$pdo->query("SELECT COUNT(*) FROM checkups_clinicos")->fetchColumn() + 1;
+            $folioChk = 'CHK-' . date('Y') . '-' . str_pad((string)$countChk, 3, '0', STR_PAD_LEFT);
+
+            $stmtChk = $pdo->prepare("INSERT INTO checkups_clinicos (folio_checkup, paciente_id, especialista_id, fecha_checkup, tipo_checkup, presion_sistolica, presion_diastolica, frecuencia_cardiaca, temperatura_c, spo2_oxigenacion, glucosa_ayuno_mg, insulina_basal_uui, indice_homa_ir, hba1c_pct, colesterol_total_mg, trigliceridos_mg, hdl_mg, ldl_mg, tsh_tiroides, cortisol_matutino, vitamina_d_ng, semaforo_metabolico, semaforo_psicoemocional, score_salud_integral, interpretacion_biomarcadores, plan_accion_checkup) VALUES (?, ?, 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmtChk->execute([
+                $folioChk, $pacienteId, $hoy, $tipoCheckup, $paSis, $paDia, $fc, $temp, $spo2,
+                $glucosa, $insulina, $homa, $hba1c, $colesterol, $trigliceridos, $hdl, $ldl,
+                $tsh, $cortisol, $vitD, $semaforoMet, $semaforoPsi, $score, $interp, $planAccion
+            ]);
+
+            $mensajeExito = "Checkup {$folioChk} guardado (HOMA-IR: {$homa}, Score: {$score}/100).";
+            $tabActiva = 'historial';
+        }
     }
-
-    header("Location: consulta.php?paciente_id={$pacienteId}&tab=nutricion&guardado=nutricion");
-    exit;
 }
 
-// 2. Guardar Sesión de Psicología Clínica / Psiconutrición (SOAP + PHQ-9 / GAD-7 / BES)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_consulta_psicologia']) && $paciente && verify_csrf($_POST['csrf_token'] ?? '')) {
-    $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM consultas_psicologia WHERE paciente_id = ?");
-    $stmtCount->execute([$pacienteId]);
-    $numSesion = (int)$stmtCount->fetchColumn() + 1;
+$pacientesLista = $pdo->query("SELECT id, folio_expediente, nombre_completo FROM pacientes ORDER BY id ASC")->fetchAll();
+$stmtPac = $pdo->prepare("
+    SELECT p.*, un.nombre AS nutriologo_nombre, up.nombre AS psicologo_nombre
+    FROM pacientes p
+    LEFT JOIN usuarios un ON p.nutriologo_id = un.id
+    LEFT JOIN usuarios up ON p.psicologo_id = up.id
+    WHERE p.id = ?
+");
+$stmtPac->execute([$pacienteId]);
+$paciente = $stmtPac->fetch() ?: $pdo->query("SELECT * FROM pacientes LIMIT 1")->fetch();
+$pacienteId = (int)$paciente['id'];
 
-    $stmtPsi = $pdo->prepare("INSERT INTO consultas_psicologia (paciente_id, psicologo_id, fecha_sesion, numero_sesion, modalidad_sesion, enfoque_terapeutico, phq9_depresion, gad7_ansiedad, bes_atracon, nivel_estres, calidad_sueno_hrs, riesgo_clinico, estado_mental_examen, notas_soap, conducta_alimentaria_emocional, tareas_terapeuticas, acuerdos_interdisciplinarios) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmtPsi->execute([
-        $pacienteId,
-        $usuario['id'],
-        date('Y-m-d'),
-        $numSesion,
-        $_POST['modalidad_sesion'] ?? 'psicoterapia_individual',
-        trim($_POST['enfoque_terapeutico'] ?? 'Cognitivo-Conductual (TCC)'),
-        (int)($_POST['phq9_depresion'] ?? 0),
-        (int)($_POST['gad7_ansiedad'] ?? 0),
-        (int)($_POST['bes_atracon'] ?? 0),
-        (int)($_POST['nivel_estres'] ?? 5),
-        (float)($_POST['calidad_sueno_hrs'] ?? 7.0),
-        $_POST['riesgo_clinico'] ?? 'bajo',
-        trim($_POST['estado_mental_examen'] ?? ''),
-        trim($_POST['notas_soap'] ?? ''),
-        trim($_POST['conducta_alimentaria_emocional'] ?? ''),
-        trim($_POST['tareas_terapeuticas'] ?? ''),
-        trim($_POST['acuerdos_interdisciplinarios'] ?? '')
-    ]);
+$stmtAntro = $pdo->prepare("SELECT * FROM consultas_antropometria WHERE paciente_id = ? ORDER BY id DESC");
+$stmtAntro->execute([$pacienteId]);
+$historialAntro = $stmtAntro->fetchAll();
+$ultimaAntro = $historialAntro[0] ?? null;
 
-    header("Location: consulta.php?paciente_id={$pacienteId}&tab=psicologia&guardado=psicologia");
-    exit;
-}
+$stmtPlan = $pdo->prepare("SELECT * FROM planes_alimentacion WHERE paciente_id = ? ORDER BY id DESC LIMIT 1");
+$stmtPlan->execute([$pacienteId]);
+$ultimoPlan = $stmtPlan->fetch();
 
-// 3. Guardar Checkup Médico Integral 360° (Signos Vitales + Biomarcadores + HOMA-IR)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['guardar_checkup_clinico']) && $paciente && verify_csrf($_POST['csrf_token'] ?? '')) {
-    $folioChk = 'CHK-' . date('Y') . '-' . rand(100, 999);
-    $glucosa  = !empty($_POST['glucosa_ayuno_mg']) ? (float)$_POST['glucosa_ayuno_mg'] : null;
-    $insulina = !empty($_POST['insulina_basal_uui']) ? (float)$_POST['insulina_basal_uui'] : null;
-    $homaIr   = calcularHomaIR($glucosa, $insulina);
-    $trig     = !empty($_POST['trigliceridos_mg']) ? (float)$_POST['trigliceridos_mg'] : null;
-    $cortisol = !empty($_POST['cortisol_matutino']) ? (float)$_POST['cortisol_matutino'] : null;
+$stmtPsico = $pdo->prepare("SELECT * FROM consultas_psicologia WHERE paciente_id = ? ORDER BY id DESC");
+$stmtPsico->execute([$pacienteId]);
+$historialPsico = $stmtPsico->fetchAll();
+$ultimaPsico = $historialPsico[0] ?? null;
 
-    $semMet = ($homaIr !== null && $homaIr >= 2.9) || ($glucosa !== null && $glucosa >= 110) ? 'alerta' : (($homaIr !== null && $homaIr >= 2.0) || ($trig !== null && $trig >= 150) ? 'precaucion' : 'optimo');
-    $semPsi = ($cortisol !== null && $cortisol >= 22) ? 'alerta' : (($cortisol !== null && $cortisol >= 18) ? 'precaucion' : 'optimo');
-    $score  = (int)($_POST['score_salud_integral'] ?? ($semMet === 'optimo' ? 90 : ($semMet === 'precaucion' ? 82 : 70)));
+$stmtCheckup = $pdo->prepare("SELECT * FROM checkups_clinicos WHERE paciente_id = ? ORDER BY id DESC");
+$stmtCheckup->execute([$pacienteId]);
+$historialCheckups = $stmtCheckup->fetchAll();
+$ultimoCheckup = $historialCheckups[0] ?? null;
 
-    $stmtChk = $pdo->prepare("INSERT INTO checkups_clinicos (folio_checkup, paciente_id, especialista_id, fecha_checkup, tipo_checkup, presion_sistolica, presion_diastolica, frecuencia_cardiaca, temperatura_c, spo2_oxigenacion, glucosa_ayuno_mg, insulina_basal_uui, indice_homa_ir, hba1c_pct, colesterol_total_mg, trigliceridos_mg, hdl_mg, ldl_mg, tsh_tiroides, cortisol_matutino, vitamina_d_ng, semaforo_metabolico, semaforo_psicoemocional, score_salud_integral, interpretacion_biomarcadores, plan_accion_checkup) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-    $stmtChk->execute([
-        $folioChk, $pacienteId, $usuario['id'], date('Y-m-d'),
-        $_POST['tipo_checkup'] ?? 'Checkup Integral Mente-Cuerpo 360°',
-        (int)($_POST['presion_sistolica'] ?? 118),
-        (int)($_POST['presion_diastolica'] ?? 76),
-        (int)($_POST['frecuencia_cardiaca'] ?? 68),
-        (float)($_POST['temperatura_c'] ?? 36.5),
-        (int)($_POST['spo2_oxigenacion'] ?? 98),
-        $glucosa, $insulina, $homaIr,
-        !empty($_POST['hba1c_pct']) ? (float)$_POST['hba1c_pct'] : null,
-        !empty($_POST['colesterol_total_mg']) ? (float)$_POST['colesterol_total_mg'] : null,
-        $trig,
-        !empty($_POST['hdl_mg']) ? (float)$_POST['hdl_mg'] : null,
-        !empty($_POST['ldl_mg']) ? (float)$_POST['ldl_mg'] : null,
-        !empty($_POST['tsh_tiroides']) ? (float)$_POST['tsh_tiroides'] : null,
-        $cortisol,
-        !empty($_POST['vitamina_d_ng']) ? (float)$_POST['vitamina_d_ng'] : null,
-        $semMet, $semPsi, $score,
-        trim($_POST['interpretacion_biomarcadores'] ?? ''),
-        trim($_POST['plan_accion_checkup'] ?? '')
-    ]);
-
-    header("Location: consulta.php?paciente_id={$pacienteId}&tab=checkup&guardado=checkup");
-    exit;
-}
-
-// Consultar Historial Clínico Integral del Paciente
-$stmtHistNut = $pdo->prepare("SELECT ca.*, u.nombre AS autor FROM consultas_antropometria ca JOIN usuarios u ON ca.nutriologo_id = u.id WHERE ca.paciente_id = ? ORDER BY ca.fecha_consulta DESC, ca.id DESC");
-$stmtHistNut->execute([$pacienteId]);
-$historialNutricion = $stmtHistNut->fetchAll();
-$ultimaNut = $historialNutricion[0] ?? null;
-
-$stmtPlanAct = $pdo->prepare("SELECT * FROM planes_alimentacion WHERE paciente_id = ? ORDER BY id DESC LIMIT 1");
-$stmtPlanAct->execute([$pacienteId]);
-$planActual = $stmtPlanAct->fetch();
-
-$stmtHistPsi = $pdo->prepare("SELECT cp.*, u.nombre AS autor FROM consultas_psicologia cp JOIN usuarios u ON cp.psicologo_id = u.id WHERE cp.paciente_id = ? ORDER BY cp.fecha_sesion DESC, cp.id DESC");
-$stmtHistPsi->execute([$pacienteId]);
-$historialPsicologia = $stmtHistPsi->fetchAll();
-$ultimaPsi = $historialPsicologia[0] ?? null;
-
-$stmtHistChk = $pdo->prepare("SELECT ck.*, u.nombre AS autor FROM checkups_clinicos ck JOIN usuarios u ON ck.especialista_id = u.id WHERE ck.paciente_id = ? ORDER BY ck.fecha_checkup DESC, ck.id DESC");
-$stmtHistChk->execute([$pacienteId]);
-$historialCheckups = $stmtHistChk->fetchAll();
-$ultimoChk = $historialCheckups[0] ?? null;
+$subPills = [
+    ['label' => '1. Nutrición y Menú SMAE', 'href' => "consulta.php?paciente_id={$pacienteId}&tab=nutricion", 'active' => ($tabActiva === 'nutricion'), 'count' => null],
+    ['label' => '2. Psicología y Escalas', 'href' => "consulta.php?paciente_id={$pacienteId}&tab=psicologia", 'active' => ($tabActiva === 'psicologia'), 'count' => null],
+    ['label' => '3. Checkup 360°', 'href' => "consulta.php?paciente_id={$pacienteId}&tab=checkup", 'active' => ($tabActiva === 'checkup'), 'count' => null],
+    ['label' => '4. Historial Evolución', 'href' => "consulta.php?paciente_id={$pacienteId}&tab=historial", 'active' => ($tabActiva === 'historial'), 'count' => count($historialAntro) + count($historialPsico) + count($historialCheckups)],
+];
+$actionTop = '<a href="imprimir_plan.php?paciente_id=' . $pacienteId . '" target="_blank" class="btn btn-outline btn-sm">Imprimir Reporte Clínico</a>';
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Estación Clínica: Nutrición, Psicología y Checkups | <?= htmlspecialchars(CLINIC_NAME) ?></title>
+    <title>Consulta Clínica | <?= htmlspecialchars($paciente['nombre_completo']) ?></title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <?php renderNavbar('consulta'); ?>
 
-    <main class="container section-pad">
-        <?php if (isset($_GET['guardado'])): ?>
-            <div class="result-box">
-                ✅ Evaluación de <strong><?= strtoupper(htmlspecialchars($_GET['guardado'])) ?></strong> guardada exitosamente en el expediente clínico electrónico.
-                <a href="imprimir_plan.php?paciente_id=<?= $pacienteId ?>" class="btn btn-primary btn-sm" style="margin-left:10px;">🖨️ Ver Reporte Integral Imprimible / PDF</a>
-            </div>
-        <?php endif; ?>
+<?php renderAppStart('Consulta Clínica', 'Expediente electrónico de Nutrición, Psicología y Checkup', 'consulta', $subPills, $actionTop); ?>
 
-        <!-- CABECERA DEL EXPEDIENTE CLÍNICO INTERDISCIPLINARIO -->
-        <div class="card" style="background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); color:#fff;">
-            <div class="flex-between">
-                <div>
-                    <span class="badge badge-teal"><?= htmlspecialchars($paciente['folio_expediente'] ?? 'EXP') ?></span>
-                    <span class="badge badge-purple" style="margin-left:6px;"><?= strtoupper(str_replace('_', ' ', htmlspecialchars($paciente['modalidad_atencion'] ?? ''))) ?></span>
-                    <h2 style="color:#fff; margin-top:6px;"><?= htmlspecialchars($paciente['nombre_completo'] ?? '') ?> (<?= calcularEdad($paciente['fecha_nacimiento'] ?? null) ?> años)</h2>
-                    <p style="color:#cbd5e1; font-size:12.5px;">
-                        🥗 <strong>Meta Nutricional:</strong> <?= htmlspecialchars($paciente['objetivo_principal'] ?? '') ?><br>
-                        🧠 <strong>Enfoque Psicológico:</strong> <?= htmlspecialchars($paciente['motivo_psicologico'] ?: 'Seguimiento de bienestar emocional y adherencia') ?><br>
-                        💊 <strong>Alergias / Médicos:</strong> <?= htmlspecialchars(($paciente['alergias_intolerancias'] ?: 'Sin alergias') . ' · ' . ($paciente['medicamentos_suplementos'] ?: 'Sin fármacos')) ?>
-                    </p>
+<?php if ($mensajeExito): ?>
+    <div class="alert alert-success"><?= htmlspecialchars($mensajeExito) ?></div>
+<?php endif; ?>
+<?php if ($mensajeError): ?>
+    <div class="alert alert-danger"><?= htmlspecialchars($mensajeError) ?></div>
+<?php endif; ?>
+
+<!-- BARRA COMPACTA DEL PACIENTE EN CONSULTA -->
+<div class="card card-compact" style="margin-bottom:22px;background:var(--primary-soft);border-color:#cde2dc;">
+    <div class="flex-between" style="flex-wrap:wrap;gap:16px;">
+        <div class="avatar-row">
+            <img src="<?= htmlspecialchars(getFotoPaciente($pacienteId)) ?>" alt="" class="avatar-md">
+            <div>
+                <div class="flex-gap">
+                    <h2 style="font-size:1.2rem;margin:0;"><?= htmlspecialchars($paciente['nombre_completo']) ?></h2>
+                    <span class="badge badge-teal"><?= htmlspecialchars($paciente['folio_expediente']) ?></span>
+                    <span class="badge badge-slate"><?= calcularEdad($paciente['fecha_nacimiento']) ?> años</span>
                 </div>
-                <div style="display:flex; flex-direction:column; gap:8px; align-items:flex-end;">
-                    <form method="GET" style="display:flex; gap:6px; align-items:center;">
-                        <input type="hidden" name="tab" value="<?= htmlspecialchars($tabActiva) ?>">
-                        <select name="paciente_id" onchange="this.form.submit()" style="background:#334155; color:#fff; border-color:#475569; margin:0;">
-                            <?php foreach ($pacientesList as $pl): ?>
-                                <option value="<?= (int)$pl['id'] ?>" <?= $pacienteId === (int)$pl['id'] ? 'selected' : '' ?>>
-                                    📂 <?= htmlspecialchars($pl['folio_expediente'] . ' — ' . $pl['nombre_completo']) ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </form>
-                    <div style="display:flex; gap:8px;">
-                        <a href="imprimir_plan.php?paciente_id=<?= $pacienteId ?>" class="btn btn-primary btn-sm">🖨️ Imprimir Plan + Checkup 360°</a>
-                        <a href="recepcion.php?fecha=<?= date('Y-m-d') ?>" class="btn btn-outline btn-sm" style="background:rgba(255,255,255,0.1);color:#fff;border-color:rgba(255,255,255,0.2);">💳 Enviar a Caja POS</a>
+                <div class="text-xs text-muted" style="margin-top:4px;">
+                    <strong>Objetivo:</strong> <?= htmlspecialchars($paciente['objetivo_principal'] ?: 'Evaluación integral') ?>
+                    <?php if (!empty($paciente['alergias_intolerancias'])): ?>
+                        · <strong>Alergias:</strong> <?= htmlspecialchars($paciente['alergias_intolerancias']) ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+
+        <form method="GET" class="flex-gap">
+            <input type="hidden" name="tab" value="<?= htmlspecialchars($tabActiva) ?>">
+            <label class="text-xs text-muted" style="margin:0;">Cambiar paciente:</label>
+            <select name="paciente_id" class="form-control" style="width:240px;" onchange="this.form.submit()">
+                <?php foreach ($pacientesLista as $pl): ?>
+                    <option value="<?= (int)$pl['id'] ?>" <?= ((int)$pl['id'] === $pacienteId) ? 'selected' : '' ?>>
+                        <?= htmlspecialchars($pl['nombre_completo']) ?> (<?= htmlspecialchars($pl['folio_expediente']) ?>)
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </form>
+    </div>
+</div>
+
+<?php if ($tabActiva === 'nutricion'): ?>
+    <!-- =========================================================
+         PESTAÑA 1: NUTRICIÓN, ANTROPOMETRÍA ISAK Y PLAN SMAE
+         ========================================================= -->
+    <form method="POST" action="consulta.php?paciente_id=<?= $pacienteId ?>&tab=nutricion">
+        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+        <input type="hidden" name="accion" value="guardar_nutricion">
+        <input type="hidden" name="paciente_id" value="<?= $pacienteId ?>">
+
+        <div class="grid-2">
+            <div class="card">
+                <div class="card-header">
+                    <div>
+                        <h2>1. Antropometría InBody / ISAK II</h2>
+                        <p>Medición corporal y cálculo energético del paciente.</p>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <!-- KPIS CLÍNICOS UNIFICADOS DEL PACIENTE -->
-        <div class="grid-4" style="margin-bottom:22px;">
-            <div class="kpi-card">
-                <div class="kpi-title">Composición Corporal (ISAK)</div>
-                <div class="kpi-value"><?= $ultimaNut ? $ultimaNut['peso_kg'] . ' kg · IMC ' . $ultimaNut['imc'] : 'Sin registro' ?></div>
-                <div class="kpi-sub">
-                    Grasa: <?= $ultimaNut['porcentaje_grasa'] ?? '—' ?>% · Músculo: <?= $ultimaNut['porcentaje_musculo'] ?? '—' ?>% · 4 Pliegues: <?= $ultimaNut['suma_4_pliegues_mm'] ?? '—' ?> mm
+                <div class="form-row-4">
+                    <div class="form-group">
+                        <label>Peso (kg) *</label>
+                        <input type="number" step="0.1" name="peso_kg" class="form-control" value="<?= (float)($ultimaAntro['peso_kg'] ?? 69.8) ?>" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Talla (cm) *</label>
+                        <input type="number" step="0.1" name="talla_cm" class="form-control" value="<?= (float)($ultimaAntro['talla_cm'] ?? 163.0) ?>" required>
+                    </div>
+                    <div class="form-group">
+                        <label>% Grasa</label>
+                        <input type="number" step="0.1" name="porcentaje_grasa" class="form-control" value="<?= (float)($ultimaAntro['porcentaje_grasa'] ?? 31.2) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>% Músculo</label>
+                        <input type="number" step="0.1" name="porcentaje_musculo" class="form-control" value="<?= (float)($ultimaAntro['porcentaje_musculo'] ?? 27.9) ?>">
+                    </div>
                 </div>
-                <div class="progress-track"><div class="progress-fill" style="width: 76%;"></div></div>
-            </div>
-            <div class="kpi-card blue">
-                <div class="kpi-title">Último Checkup 360° (HOMA-IR)</div>
-                <div class="kpi-value">
-                    <?= $ultimoChk && $ultimoChk['indice_homa_ir'] ? 'HOMA-IR: ' . $ultimoChk['indice_homa_ir'] : 'Score: ' . ($ultimoChk['score_salud_integral'] ?? '—') ?>
+
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label>Cintura (cm)</label>
+                        <input type="number" step="0.1" name="cintura_cm" class="form-control" value="<?= (float)($ultimaAntro['cintura_cm'] ?? 82.0) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Cadera (cm)</label>
+                        <input type="number" step="0.1" name="cadera_cm" class="form-control" value="<?= (float)($ultimaAntro['cadera_cm'] ?? 100.5) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Grasa Visceral (Nivel)</label>
+                        <input type="number" name="grasa_visceral" class="form-control" value="<?= (int)($ultimaAntro['grasa_visceral'] ?? 7) ?>">
+                    </div>
                 </div>
-                <div class="kpi-sub">
-                    PA: <?= $ultimoChk ? $ultimoChk['presion_sistolica'] . '/' . $ultimoChk['presion_diastolica'] : '—' ?> mmHg · Glucosa: <?= $ultimoChk['glucosa_ayuno_mg'] ?? '—' ?> mg/dL
+
+                <div class="form-row-4">
+                    <div class="form-group">
+                        <label>P. Tricipital (mm)</label>
+                        <input type="number" step="0.5" name="pliegue_tricipital_mm" class="form-control" value="<?= (float)($ultimaAntro['pliegue_tricipital_mm'] ?? 17.0) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>P. Bicipital (mm)</label>
+                        <input type="number" step="0.5" name="pliegue_bicipital_mm" class="form-control" value="<?= (float)($ultimaAntro['pliegue_bicipital_mm'] ?? 9.5) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>P. Subescapular</label>
+                        <input type="number" step="0.5" name="pliegue_subescapular_mm" class="form-control" value="<?= (float)($ultimaAntro['pliegue_subescapular_mm'] ?? 16.0) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>P. Suprailíaco</label>
+                        <input type="number" step="0.5" name="pliegue_suprailiaco_mm" class="form-control" value="<?= (float)($ultimaAntro['pliegue_suprailiaco_mm'] ?? 18.5) ?>">
+                    </div>
                 </div>
-                <div class="progress-track"><div class="progress-fill blue" style="width: <?= (int)($ultimoChk['score_salud_integral'] ?? 85) ?>%;"></div></div>
-            </div>
-            <div class="kpi-card purple">
-                <div class="kpi-title">Tamizaje Psicoemocional</div>
-                <div class="kpi-value">
-                    GAD-7: <?= $ultimaPsi['gad7_ansiedad'] ?? '—' ?> · BES: <?= $ultimaPsi['bes_atracon'] ?? '—' ?>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Fórmula Energética</label>
+                        <select name="formula_usada" class="form-control">
+                            <option value="Mifflin-St Jeor">Mifflin-St Jeor</option>
+                            <option value="Harris-Benedict">Harris-Benedict</option>
+                            <option value="Katch-McArdle">Katch-McArdle (Masa Magra)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Meta Prescrita (Kcal/día) *</label>
+                        <input type="number" name="meta_kcal" class="form-control" value="<?= (int)($ultimaAntro['meta_kcal'] ?? 1800) ?>" required>
+                    </div>
                 </div>
-                <div class="kpi-sub">
-                    PHQ-9: <?= $ultimaPsi['phq9_depresion'] ?? '—' ?> · Sueño: <?= $ultimaPsi['calidad_sueno_hrs'] ?? '—' ?> hrs/noche
+
+                <div class="form-row-3">
+                    <div class="form-group">
+                        <label>% Proteína</label>
+                        <input type="number" name="pct_proteina" class="form-control" value="<?= (int)($ultimaAntro['pct_proteina'] ?? 28) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>% Carbohidratos</label>
+                        <input type="number" name="pct_carbohidratos" class="form-control" value="<?= (int)($ultimaAntro['pct_carbohidratos'] ?? 42) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>% Lípidos</label>
+                        <input type="number" name="pct_lipidos" class="form-control" value="<?= (int)($ultimaAntro['pct_lipidos'] ?? 30) ?>">
+                    </div>
                 </div>
-                <div class="progress-track"><div class="progress-fill purple" style="width: 72%;"></div></div>
-            </div>
-            <div class="kpi-card amber">
-                <div class="kpi-title">Sesiones / Checkups en Paquete</div>
-                <div class="kpi-value">
-                    🥗 <?= (int)($paciente['sesiones_disponibles_nutri'] ?? 0) ?> · 🧠 <?= (int)($paciente['sesiones_disponibles_psico'] ?? 0) ?> · 🔬 <?= (int)($paciente['checkups_disponibles'] ?? 0) ?>
-                </div>
-                <div class="kpi-sub"><?= htmlspecialchars($paciente['nombre_paquete_activo'] ?? 'Pago por consulta') ?></div>
-                <div class="progress-track"><div class="progress-fill amber" style="width: 80%;"></div></div>
-            </div>
-        </div>
 
-        <!-- PESTAÑAS DE LAS 3 ESPECIALIDADES CLÍNICAS -->
-        <div class="tabs-bar">
-            <a href="consulta.php?paciente_id=<?= $pacienteId ?>&tab=nutricion" class="tab-btn <?= $tabActiva === 'nutricion' ? 'active' : '' ?>">
-                🥗 1. Nutrición, Antropometría ISAK y Plan SMAE
-            </a>
-            <a href="consulta.php?paciente_id=<?= $pacienteId ?>&tab=psicologia" class="tab-btn <?= $tabActiva === 'psicologia' ? 'active' : '' ?>">
-                🧠 2. Psicología Clínica, TCC y Psiconutrición (SOAP + Escalas)
-            </a>
-            <a href="consulta.php?paciente_id=<?= $pacienteId ?>&tab=checkup" class="tab-btn <?= $tabActiva === 'checkup' ? 'active' : '' ?>">
-                🔬 3. Checkup Médico 360°, Signos Vitales y Biomarcadores
-            </a>
-        </div>
-
-        <?php if ($tabActiva === 'nutricion'): ?>
-        <!-- PESTAÑA 1: NUTRICIÓN, ISAK Y PLAN SMAE -->
-        <div class="card">
-            <h3>📐 Evaluación Antropométrica ISAK (4 Pliegues), Gasto Energético y Prescripción SMAE</h3>
-            <form method="POST" class="grid-3">
-                <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-                <input type="hidden" name="guardar_consulta_nutricion" value="1">
-
-                <label>Peso Actual (kg) * <input type="number" name="peso_kg" step="0.1" value="<?= $ultimaNut['peso_kg'] ?? 70.0 ?>" required></label>
-                <label>Estatura (cm) * <input type="number" name="talla_cm" step="0.5" value="<?= $ultimaNut['talla_cm'] ?? 165.0 ?>" required></label>
-                <label>% Grasa Corporal (InBody / Bioimpedancia) <input type="number" name="porcentaje_grasa" step="0.1" value="<?= $ultimaNut['porcentaje_grasa'] ?? 28.5 ?>"></label>
-                <label>% Masa Muscular Esquelética <input type="number" name="porcentaje_musculo" step="0.1" value="<?= $ultimaNut['porcentaje_musculo'] ?? 31.0 ?>"></label>
-                <label>Nivel de Grasa Visceral <input type="number" name="grasa_visceral" value="<?= $ultimaNut['grasa_visceral'] ?? 7 ?>"></label>
-                <label>Circunferencia Cintura (cm) <input type="number" name="cintura_cm" step="0.5" value="<?= $ultimaNut['cintura_cm'] ?? 82.0 ?>"></label>
-                <label>Circunferencia Cadera (cm) <input type="number" name="cadera_cm" step="0.5" value="<?= $ultimaNut['cadera_cm'] ?? 100.0 ?>"></label>
-                <label>Pliegue Tricipital ISAK (mm) <input type="number" name="pliegue_tricipital_mm" step="0.5" value="<?= $ultimaNut['pliegue_tricipital_mm'] ?? 16.0 ?>"></label>
-                <label>Pliegue Bicipital ISAK (mm) <input type="number" name="pliegue_bicipital_mm" step="0.5" value="<?= $ultimaNut['pliegue_bicipital_mm'] ?? 9.0 ?>"></label>
-                <label>Pliegue Subescapular ISAK (mm) <input type="number" name="pliegue_subescapular_mm" step="0.5" value="<?= $ultimaNut['pliegue_subescapular_mm'] ?? 15.0 ?>"></label>
-                <label>Pliegue Suprailíaco ISAK (mm) <input type="number" name="pliegue_suprailiaco_mm" step="0.5" value="<?= $ultimaNut['pliegue_suprailiaco_mm'] ?? 18.0 ?>"></label>
-                <label>Fórmula de Gasto Energético
-                    <select name="formula_usada">
-                        <option value="Mifflin-St Jeor">Mifflin-St Jeor (Clínica / Metabólica)</option>
-                        <option value="Katch-McArdle">Katch-McArdle (Deportiva por Masa Magra)</option>
-                        <option value="Harris-Benedict">Harris-Benedict (Clásica)</option>
-                    </select>
-                </label>
-                <label>Meta Calórica Prescrita (kcal/día) * <input type="number" name="meta_kcal" value="<?= $ultimaNut['meta_kcal'] ?? 1800 ?>" required></label>
-                <label>% Proteína <input type="number" name="pct_proteina" value="<?= $ultimaNut['pct_proteina'] ?? 25 ?>"></label>
-                <label>% Carbohidratos <input type="number" name="pct_carbohidratos" value="<?= $ultimaNut['pct_carbohidratos'] ?? 45 ?>"></label>
-                <label>% Lípidos <input type="number" name="pct_lipidos" value="<?= $ultimaNut['pct_lipidos'] ?? 30 ?>"></label>
-                <label style="grid-column: span 2;">Diagnóstico Nutricional Estructurado (Formato PES)
-                    <input type="text" name="diagnostico_nutricional" value="<?= htmlspecialchars($ultimaNut['diagnostico_nutricional'] ?? '') ?>" placeholder="Problema + Etiología + Signos/Síntomas">
-                </label>
-
-                <div style="grid-column: 1 / -1; border-top: 1px solid var(--border); padding-top: 14px; margin-top: 6px;">
-                    <h4>🥗 Plan de Alimentación por Equivalentes SMAE y Menú Entregable</h4>
-                </div>
-                <label style="grid-column: span 3;">Nombre del Plan Nutricional
-                    <input type="text" name="nombre_plan" value="<?= htmlspecialchars($planActual['nombre_plan'] ?? 'Plan Integral de Recomposición Corporal y Saciedad Consciente') ?>">
-                </label>
-                <label>Eq. Verduras <input type="number" step="0.5" name="eq_verduras" value="<?= $planActual['eq_verduras'] ?? 5 ?>"></label>
-                <label>Eq. Frutas <input type="number" step="0.5" name="eq_frutas" value="<?= $planActual['eq_frutas'] ?? 3 ?>"></label>
-                <label>Eq. Cereales s/g <input type="number" step="0.5" name="eq_cereales_sg" value="<?= $planActual['eq_cereales_sg'] ?? 5 ?>"></label>
-                <label>Eq. Leguminosas <input type="number" step="0.5" name="eq_leguminosas" value="<?= $planActual['eq_leguminosas'] ?? 1 ?>"></label>
-                <label>Eq. AOA (Proteína) <input type="number" step="0.5" name="eq_aoa_bajo" value="<?= $planActual['eq_aoa_bajo'] ?? 6 ?>"></label>
-                <label>Eq. Grasas Saludables <input type="number" step="0.5" name="eq_grasas_sp" value="<?= $planActual['eq_grasas_sp'] ?? 4 ?>"></label>
-
-                <label>Menú Desayuno *
-                    <textarea name="menu_desayuno" rows="2"><?= htmlspecialchars($planActual['menu_desayuno'] ?? 'Omelette de 2 huevos + claras con espinacas, 1 reb pan masa madre y 1/3 aguacate.') ?></textarea>
-                </label>
-                <label>Colación Matutina
-                    <textarea name="menu_colacion_1" rows="2"><?= htmlspecialchars($planActual['menu_colacion_1'] ?? 'Yogur griego natural sin azúcar con 10 almendras y frutos rojos.') ?></textarea>
-                </label>
-                <label>Menú Comida *
-                    <textarea name="menu_comida" rows="2"><?= htmlspecialchars($planActual['menu_comida'] ?? '150g pechuga o salmón a la plancha + 2/3 taza arroz o quinoa + ensalada verde.') ?></textarea>
-                </label>
-                <label>Colación Vespertina (Estratégica Anti-Ansiedad)
-                    <textarea name="menu_colacion_2" rows="2"><?= htmlspecialchars($planActual['menu_colacion_2'] ?? '1 manzana en gajos + 1 cda crema de almendras natural.') ?></textarea>
-                </label>
-                <label>Menú Cena *
-                    <textarea name="menu_cena" rows="2"><?= htmlspecialchars($planActual['menu_cena'] ?? '2 tostadas horneadas con 120g de atún o pollo, nopales y aguacate.') ?></textarea>
-                </label>
-                <label>Recomendaciones Clínicas e Hidratación
-                    <textarea name="recomendaciones_generales" rows="2"><?= htmlspecialchars($planActual['recomendaciones_generales'] ?? 'Hidratación 2.5L/día. Practicar escala de hambre-saciedad.') ?></textarea>
-                </label>
-
-                <div style="grid-column: 1 / -1;">
-                    <button type="submit" class="btn btn-primary" style="width:100%; padding:11px;">💾 Guardar Evaluación Antropométrica ISAK y Actualizar Plan SMAE</button>
-                </div>
-            </form>
-        </div>
-
-        <?php elseif ($tabActiva === 'psicologia'): ?>
-        <!-- PESTAÑA 2: PSICOLOGÍA CLÍNICA Y PSICONUTRICIÓN -->
-        <div class="card">
-            <h3>🧠 Nota Clínica de Psicología y Psiconutrición (Formato SOAP + Tamizaje PHQ-9, GAD-7 y BES)</h3>
-            <form method="POST" class="grid-3">
-                <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-                <input type="hidden" name="guardar_consulta_psicologia" value="1">
-
-                <label>Modalidad de Sesión *
-                    <select name="modalidad_sesion">
-                        <option value="psicoterapia_individual">🧠 Psicoterapia Individual (TCC / Regulación Emocional)</option>
-                        <option value="psiconutricion_tca">🤝 Psiconutrición / Conducta Alimentaria (TCA / Atracón)</option>
-                        <option value="evaluacion_inicial">📋 Evaluación Psicológica Inicial</option>
-                        <option value="intervencion_crisis">🚨 Intervención en Crisis / Contención</option>
-                    </select>
-                </label>
-                <label>Enfoque Terapéutico *
-                    <input type="text" name="enfoque_terapeutico" value="Terapia Cognitivo-Conductual (TCC) + ACT / Mindful Eating" required>
-                </label>
-                <label>Nivel de Riesgo Clínico
-                    <select name="riesgo_clinico">
-                        <option value="bajo">🟢 Riesgo Bajo / Estable</option>
-                        <option value="moderado">🟡 Riesgo Moderado (Vigilancia)</option>
-                        <option value="alto">🔴 Riesgo Alto (Protocolo Prioritario)</option>
-                    </select>
-                </label>
-
-                <label>Escala PHQ-9 (Depresión: 0 a 27 pts)
-                    <input type="number" name="phq9_depresion" min="0" max="27" value="<?= $ultimaPsi['phq9_depresion'] ?? 5 ?>">
-                </label>
-                <label>Escala GAD-7 (Ansiedad: 0 a 21 pts)
-                    <input type="number" name="gad7_ansiedad" min="0" max="21" value="<?= $ultimaPsi['gad7_ansiedad'] ?? 8 ?>">
-                </label>
-                <label>Escala BES (Atracón / Hambre Emocional: 0 a 46 pts)
-                    <input type="number" name="bes_atracon" min="0" max="46" value="<?= $ultimaPsi['bes_atracon'] ?? 12 ?>">
-                </label>
-
-                <label>Nivel de Estrés Percibido (1 a 10)
-                    <input type="number" name="nivel_estres" min="1" max="10" value="<?= $ultimaPsi['nivel_estres'] ?? 5 ?>">
-                </label>
-                <label>Calidad / Horas de Sueño Promedio (hrs)
-                    <input type="number" step="0.5" name="calidad_sueno_hrs" value="<?= $ultimaPsi['calidad_sueno_hrs'] ?? 7.0 ?>">
-                </label>
-                <label>Examen del Estado Mental (EEM)
-                    <input type="text" name="estado_mental_examen" value="<?= htmlspecialchars($ultimaPsi['estado_mental_examen'] ?? 'Orientado en 3 esferas, eutímico, discurso coherente, insight conservado.') ?>">
-                </label>
-
-                <label style="grid-column: span 3;">Nota Clínica Estructurada SOAP (Subjetivo, Objetivo, Análisis, Plan) *
-                    <textarea name="notas_soap" rows="4" required placeholder="S: Motivo reportado en sesión... O: Observaciones conductuales y escalas... A: Formulación cognitivo-conductual... P: Intervención realizada..."><?= htmlspecialchars($ultimaPsi['notas_soap'] ?? '') ?></textarea>
-                </label>
-
-                <label>Relación con la Comida / Conducta Alimentaria (Psiconutrición)
-                    <textarea name="conducta_alimentaria_emocional" rows="2" placeholder="Detonantes de hambre emocional, culpa post-ingesta, restricción..."><?= htmlspecialchars($ultimaPsi['conducta_alimentaria_emocional'] ?? '') ?></textarea>
-                </label>
-                <label>Tareas Terapéuticas entre Sesiones
-                    <textarea name="tareas_terapeuticas" rows="2" placeholder="Ej. Autorregistro de pensamientos automáticos, respiración 4-7-8..."><?= htmlspecialchars($ultimaPsi['tareas_terapeuticas'] ?? '') ?></textarea>
-                </label>
-                <label>Acuerdos Interdisciplinarios con Nutrición
-                    <textarea name="acuerdos_interdisciplinarios" rows="2" placeholder="Indicaciones compartidas con el nutriólogo titular..."><?= htmlspecialchars($ultimaPsi['acuerdos_interdisciplinarios'] ?? '') ?></textarea>
-                </label>
-
-                <div style="grid-column: 1 / -1;">
-                    <button type="submit" class="btn btn-purple" style="width:100%; padding:11px;">💾 Guardar Sesión Psicológica / Psiconutricional en Expediente</button>
-                </div>
-            </form>
-        </div>
-
-        <?php else: ?>
-        <!-- PESTAÑA 3: CHECKUPS CLÍNICOS 360°, SIGNOS VITALES Y BIOMARCADORES -->
-        <div class="card">
-            <h3>🔬 Checkup Médico Integral 360° — Signos Vitales, Panel Cardiometabólico, HOMA-IR y Cortisol</h3>
-            <p class="muted" style="margin-bottom:14px;">El índice HOMA-IR y el semáforo de riesgo cardiometabólico/psicoemocional se calculan de forma autónoma al ingresar Glucosa e Insulina basal.</p>
-            <form method="POST" class="grid-4">
-                <input type="hidden" name="csrf_token" value="<?= csrf_token() ?>">
-                <input type="hidden" name="guardar_checkup_clinico" value="1">
-
-                <label style="grid-column: span 2;">Tipo de Checkup Realizado *
-                    <select name="tipo_checkup">
-                        <option value="Checkup Integral Mente-Cuerpo 360°">🔬 Checkup Integral Mente-Cuerpo 360° (Metabólico + Antropometría + Estrés)</option>
-                        <option value="Checkup Cardiometabólico y Resistencia a la Insulina">❤️ Checkup Cardiometabólico y Resistencia a la Insulina (HOMA-IR + Lípidos)</option>
-                        <option value="Checkup Deportivo de Alto Rendimiento + Plicometría ISAK II">⚡ Checkup Deportivo de Alto Rendimiento + Plicometría ISAK II</option>
-                        <option value="Checkup Hormonal, Tiroides y Cortisol">🦋 Checkup Hormonal, Tiroides y Fatiga Adrenal</option>
-                    </select>
-                </label>
-                <label>Presión Sistólica (mmHg)
-                    <input type="number" name="presion_sistolica" value="<?= $ultimoChk['presion_sistolica'] ?? 116 ?>">
-                </label>
-                <label>Presión Diastólica (mmHg)
-                    <input type="number" name="presion_diastolica" value="<?= $ultimoChk['presion_diastolica'] ?? 74 ?>">
-                </label>
-
-                <label>Frecuencia Cardíaca (lpm)
-                    <input type="number" name="frecuencia_cardiaca" value="<?= $ultimoChk['frecuencia_cardiaca'] ?? 66 ?>">
-                </label>
-                <label>Temperatura (°C)
-                    <input type="number" step="0.1" name="temperatura_c" value="<?= $ultimoChk['temperatura_c'] ?? 36.4 ?>">
-                </label>
-                <label>Oxigenación SpO2 (%)
-                    <input type="number" name="spo2_oxigenacion" value="<?= $ultimoChk['spo2_oxigenacion'] ?? 98 ?>">
-                </label>
-                <label>Score de Salud Integral (0-100)
-                    <input type="number" name="score_salud_integral" min="1" max="100" value="<?= $ultimoChk['score_salud_integral'] ?? 86 ?>">
-                </label>
-
-                <label>Glucosa en Ayuno (mg/dL) *
-                    <input type="number" step="0.1" name="glucosa_ayuno_mg" id="chk_glucosa" value="<?= $ultimoChk['glucosa_ayuno_mg'] ?? 92.0 ?>" oninput="calcHomaPreview()" required>
-                </label>
-                <label>Insulina Basal (μUI/mL) *
-                    <input type="number" step="0.1" name="insulina_basal_uui" id="chk_insulina" value="<?= $ultimoChk['insulina_basal_uui'] ?? 9.5 ?>" oninput="calcHomaPreview()" required>
-                </label>
-                <label>Hemoglobina Glucosilada HbA1c (%)
-                    <input type="number" step="0.1" name="hba1c_pct" value="<?= $ultimoChk['hba1c_pct'] ?? 5.3 ?>">
-                </label>
-                <label>HOMA-IR Calculado <small class="muted">(Gluc×Ins/405)</small>
-                    <input type="text" id="chk_homa_preview" value="<?= $ultimoChk['indice_homa_ir'] ?? 2.16 ?>" readonly style="background:#f0fdfa; font-weight:700; color:#0f766e;">
-                </label>
-
-                <label>Colesterol Total (mg/dL)
-                    <input type="number" step="0.1" name="colesterol_total_mg" value="<?= $ultimoChk['colesterol_total_mg'] ?? 185.0 ?>">
-                </label>
-                <label>Triglicéridos (mg/dL)
-                    <input type="number" step="0.1" name="trigliceridos_mg" value="<?= $ultimoChk['trigliceridos_mg'] ?? 125.0 ?>">
-                </label>
-                <label>Colesterol HDL (mg/dL)
-                    <input type="number" step="0.1" name="hdl_mg" value="<?= $ultimoChk['hdl_mg'] ?? 55.0 ?>">
-                </label>
-                <label>Colesterol LDL (mg/dL)
-                    <input type="number" step="0.1" name="ldl_mg" value="<?= $ultimoChk['ldl_mg'] ?? 105.0 ?>">
-                </label>
-
-                <label>TSH Tiroides (mUI/L)
-                    <input type="number" step="0.01" name="tsh_tiroides" value="<?= $ultimoChk['tsh_tiroides'] ?? 2.10 ?>">
-                </label>
-                <label>Cortisol Matutino (μg/dL) <small class="muted">(Estrés)</small>
-                    <input type="number" step="0.1" name="cortisol_matutino" value="<?= $ultimoChk['cortisol_matutino'] ?? 14.5 ?>">
-                </label>
-                <label style="grid-column: span 2;">Vitamina D 25-OH (ng/mL)
-                    <input type="number" step="0.1" name="vitamina_d_ng" value="<?= $ultimoChk['vitamina_d_ng'] ?? 34.0 ?>">
-                </label>
-
-                <label style="grid-column: span 2;">Interpretación Clínica de Biomarcadores y Signos Vitales *
-                    <textarea name="interpretacion_biomarcadores" rows="3" required><?= htmlspecialchars($ultimoChk['interpretacion_biomarcadores'] ?? 'Sensibilidad a la insulina en rango favorable, adecuada respuesta lipídica y signos vitales normotensos.') ?></textarea>
-                </label>
-                <label style="grid-column: span 2;">Plan de Acción Preventivo y Suplementación del Checkup *
-                    <textarea name="plan_accion_checkup" rows="3" required><?= htmlspecialchars($ultimoChk['plan_accion_checkup'] ?? 'Continuar plan antiinflamatorio SMAE, suplementación dirigida y control de biomarcadores en 12 semanas.') ?></textarea>
-                </label>
-
-                <div style="grid-column: 1 / -1;">
-                    <button type="submit" class="btn btn-blue" style="width:100%; padding:11px;">🔬 Guardar Checkup Integral 360° y Actualizar Semáforo Clínico</button>
-                </div>
-            </form>
-        </div>
-        <?php endif; ?>
-
-        <!-- HISTORIAL EVOLUTIVO UNIFICADO DEL PACIENTE -->
-        <div class="grid-3">
-            <div class="card">
-                <h3>🔬 Historial de Checkups 360°</h3>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Fecha / Folio</th><th>PA / Signos</th><th>Gluc / HOMA-IR</th><th>Score</th></tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($historialCheckups as $hc):
-                                $homaInfo = interpretarHomaIR($hc['indice_homa_ir'] !== null ? (float)$hc['indice_homa_ir'] : null);
-                            ?>
-                            <tr>
-                                <td>
-                                    <strong><?= htmlspecialchars($hc['fecha_checkup']) ?></strong><br>
-                                    <small class="muted"><?= htmlspecialchars($hc['folio_checkup']) ?></small>
-                                </td>
-                                <td><?= (int)$hc['presion_sistolica'] ?>/<?= (int)$hc['presion_diastolica'] ?> mmHg<br><small class="muted"><?= (int)$hc['frecuencia_cardiaca'] ?> lpm</small></td>
-                                <td>
-                                    <?= (float)$hc['glucosa_ayuno_mg'] ?> mg/dL<br>
-                                    <span class="badge <?= $homaInfo['badge'] ?>">HOMA: <?= $hc['indice_homa_ir'] ?></span>
-                                </td>
-                                <td><strong><?= (int)$hc['score_salud_integral'] ?>/100</strong></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                <div class="form-group">
+                    <label>Diagnóstico Nutricional PES</label>
+                    <textarea name="diagnostico_nutricional" class="form-control" rows="2"><?= htmlspecialchars($ultimaAntro['diagnostico_nutricional'] ?? '') ?></textarea>
                 </div>
             </div>
 
             <div class="card">
-                <h3>🥗 Historial Antropométrico ISAK</h3>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Fecha</th><th>Peso / IMC</th><th>% Grasa / Músc</th><th>4 Pliegues / Meta</th></tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($historialNutricion as $hn): ?>
-                            <tr>
-                                <td><strong><?= htmlspecialchars($hn['fecha_consulta']) ?></strong></td>
-                                <td><strong><?= (float)$hn['peso_kg'] ?> kg</strong><br><small class="muted">IMC: <?= (float)$hn['imc'] ?></small></td>
-                                <td>G: <?= $hn['porcentaje_grasa'] ?>%<br>M: <?= $hn['porcentaje_musculo'] ?>%</td>
-                                <td><?= $hn['suma_4_pliegues_mm'] ?: '—' ?> mm<br><span class="badge badge-teal"><?= (int)$hn['meta_kcal'] ?> kcal</span></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                <div class="card-header">
+                    <div>
+                        <h2>2. Plan Alimenticio y Equivalentes SMAE</h2>
+                        <p>Menú personalizado que se imprimirá para el paciente.</p>
+                    </div>
                 </div>
-            </div>
 
-            <div class="card">
-                <h3>🧠 Historial Psicológico y TCA</h3>
-                <div class="table-wrap">
-                    <table>
-                        <thead>
-                            <tr><th>Sesión / Fecha</th><th>PHQ-9 / GAD-7</th><th>Escala BES</th><th>Acuerdo / SOAP</th></tr>
-                        </thead>
-                        <tbody>
-                            <?php foreach ($historialPsicologia as $hp):
-                                $gadInfo = interpretarGAD7((int)$hp['gad7_ansiedad']);
-                                $besInfo = interpretarBES((int)$hp['bes_atracon']);
-                            ?>
-                            <tr>
-                                <td><strong>#<?= (int)$hp['numero_sesion'] ?></strong> (<?= htmlspecialchars($hp['fecha_sesion']) ?>)</td>
-                                <td>
-                                    PHQ-9: <?= (int)$hp['phq9_depresion'] ?><br>
-                                    <span class="badge <?= $gadInfo['badge'] ?>">GAD-7: <?= (int)$hp['gad7_ansiedad'] ?></span>
-                                </td>
-                                <td><span class="badge <?= $besInfo['badge'] ?>">BES: <?= (int)$hp['bes_atracon'] ?></span></td>
-                                <td><small><?= htmlspecialchars(substr((string)$hp['acuerdos_interdisciplinarios'], 0, 65)) ?>...</small></td>
-                            </tr>
-                            <?php endforeach; ?>
-                        </tbody>
-                    </table>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Nombre del Plan *</label>
+                        <input type="text" name="nombre_plan" class="form-control" value="<?= htmlspecialchars($ultimoPlan['nombre_plan'] ?? 'Plan Antiinflamatorio Personalizado') ?>" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Meta de Agua (ml/día)</label>
+                        <input type="number" name="agua_ml" class="form-control" value="<?= (int)($ultimoPlan['agua_ml'] ?? 2600) ?>">
+                    </div>
                 </div>
+
+                <div class="form-row-4">
+                    <div class="form-group">
+                        <label>Eq. Verduras</label>
+                        <input type="number" step="0.5" name="eq_verduras" class="form-control" value="<?= (float)($ultimoPlan['eq_verduras'] ?? 5) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Eq. Frutas</label>
+                        <input type="number" step="0.5" name="eq_frutas" class="form-control" value="<?= (float)($ultimoPlan['eq_frutas'] ?? 3) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Eq. Cereales</label>
+                        <input type="number" step="0.5" name="eq_cereales_sg" class="form-control" value="<?= (float)($ultimoPlan['eq_cereales_sg'] ?? 5) ?>">
+                    </div>
+                    <div class="form-group">
+                        <label>Eq. AOA (Proteína)</label>
+                        <input type="number" step="0.5" name="eq_aoa_bajo" class="form-control" value="<?= (float)($ultimoPlan['eq_aoa_bajo'] ?? 6) ?>">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label>Desayuno</label>
+                    <textarea name="menu_desayuno" class="form-control" rows="2"><?= htmlspecialchars($ultimoPlan['menu_desayuno'] ?? '') ?></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Comida Principal</label>
+                    <textarea name="menu_comida" class="form-control" rows="2"><?= htmlspecialchars($ultimoPlan['menu_comida'] ?? '') ?></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Colación Vespertina (Regulación de Saciedad)</label>
+                    <textarea name="menu_colacion_2" class="form-control" rows="2"><?= htmlspecialchars($ultimoPlan['menu_colacion_2'] ?? '') ?></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Cena</label>
+                    <textarea name="menu_cena" class="form-control" rows="2"><?= htmlspecialchars($ultimoPlan['menu_cena'] ?? '') ?></textarea>
+                </div>
+
+                <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;">
+                    Guardar Evaluación Nutricional y Plan
+                </button>
             </div>
         </div>
-    </main>
+    </form>
 
-    <script>
-    function calcHomaPreview() {
-        const g = parseFloat(document.getElementById('chk_glucosa')?.value) || 0;
-        const i = parseFloat(document.getElementById('chk_insulina')?.value) || 0;
-        const out = document.getElementById('chk_homa_preview');
-        if (out && g > 0 && i > 0) {
-            out.value = ((g * i) / 405).toFixed(2);
-        }
-    }
-    </script>
+<?php elseif ($tabActiva === 'psicologia'): ?>
+    <!-- =========================================================
+         PESTAÑA 2: PSICOLOGÍA CLÍNICA Y PSICONUTRICIÓN (SOAP)
+         ========================================================= -->
+    <div class="card" style="max-width:860px;margin:0 auto;">
+        <div class="card-header">
+            <div>
+                <h2>Nota Clínica de Psicología y Psiconutrición</h2>
+                <p>Tamizaje psicométrico (PHQ-9, GAD-7, BES) y evolución clínica en formato SOAP.</p>
+            </div>
+        </div>
+
+        <form method="POST" action="consulta.php?paciente_id=<?= $pacienteId ?>&tab=psicologia">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+            <input type="hidden" name="accion" value="guardar_psicologia">
+            <input type="hidden" name="paciente_id" value="<?= $pacienteId ?>">
+
+            <div class="form-row-4">
+                <div class="form-group">
+                    <label>PHQ-9 Depresión (0-27)</label>
+                    <input type="number" min="0" max="27" name="phq9_depresion" class="form-control" value="<?= (int)($ultimaPsico['phq9_depresion'] ?? 5) ?>">
+                </div>
+                <div class="form-group">
+                    <label>GAD-7 Ansiedad (0-21)</label>
+                    <input type="number" min="0" max="21" name="gad7_ansiedad" class="form-control" value="<?= (int)($ultimaPsico['gad7_ansiedad'] ?? 8) ?>">
+                </div>
+                <div class="form-group">
+                    <label>Escala BES Atracón (0-46)</label>
+                    <input type="number" min="0" max="46" name="bes_atracon" class="form-control" value="<?= (int)($ultimaPsico['bes_atracon'] ?? 12) ?>">
+                </div>
+                <div class="form-group">
+                    <label>Horas de Sueño / Noche</label>
+                    <input type="number" step="0.5" name="calidad_sueno_hrs" class="form-control" value="<?= (float)($ultimaPsico['calidad_sueno_hrs'] ?? 7.0) ?>">
+                </div>
+            </div>
+
+            <div class="form-row-3">
+                <div class="form-group">
+                    <label>Enfoque Terapéutico</label>
+                    <select name="enfoque_terapeutico" class="form-control">
+                        <option value="Psiconutrición / TCC + ACT">Psiconutrición / TCC + ACT</option>
+                        <option value="Cognitivo-Conductual (TCC)">Cognitivo-Conductual (TCC)</option>
+                        <option value="Terapia de Aceptación y Compromiso">Terapia de Aceptación y Compromiso (ACT)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Estrés Percibido (1-10)</label>
+                    <input type="number" min="1" max="10" name="nivel_estres" class="form-control" value="<?= (int)($ultimaPsico['nivel_estres'] ?? 5) ?>">
+                </div>
+                <div class="form-group">
+                    <label>Riesgo Clínico</label>
+                    <select name="riesgo_clinico" class="form-control">
+                        <option value="bajo">Bajo (Estable)</option>
+                        <option value="moderado">Moderado (Seguimiento estrecho)</option>
+                        <option value="alto">Alto (Prioritario)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Nota de Evolución Clínica SOAP (Subjetivo, Objetivo, Análisis, Plan) *</label>
+                <textarea name="notas_soap" class="form-control" rows="4" required><?= htmlspecialchars($ultimaPsico['notas_soap'] ?? '') ?></textarea>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Conducta Alimentaria y Regulación Emocional</label>
+                    <textarea name="conducta_alimentaria_emocional" class="form-control" rows="2"><?= htmlspecialchars($ultimaPsico['conducta_alimentaria_emocional'] ?? '') ?></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Tareas Terapéuticas y Acuerdos con Nutrición</label>
+                    <textarea name="tareas_terapeuticas" class="form-control" rows="2"><?= htmlspecialchars($ultimaPsico['tareas_terapeuticas'] ?? '') ?></textarea>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;">
+                Guardar Sesión Psicológica
+            </button>
+        </form>
+    </div>
+
+<?php elseif ($tabActiva === 'checkup'): ?>
+    <!-- =========================================================
+         PESTAÑA 3: CHECKUP MÉDICO Y METABÓLICO 360°
+         ========================================================= -->
+    <div class="card" style="max-width:860px;margin:0 auto;">
+        <div class="card-header">
+            <div>
+                <h2>Checkup Clínico y Biomarcadores Metabólicos</h2>
+                <p>Calcula automáticamente el índice de resistencia a la insulina HOMA-IR y el semáforo de salud.</p>
+            </div>
+        </div>
+
+        <form method="POST" action="consulta.php?paciente_id=<?= $pacienteId ?>&tab=checkup">
+            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(csrf_token()) ?>">
+            <input type="hidden" name="accion" value="guardar_checkup">
+            <input type="hidden" name="paciente_id" value="<?= $pacienteId ?>">
+
+            <div class="form-group">
+                <label>Tipo de Checkup Realizado</label>
+                <select name="tipo_checkup" class="form-control">
+                    <option value="Checkup Integral Mente-Cuerpo 360°">Checkup Integral Mente-Cuerpo 360°</option>
+                    <option value="Checkup Cardiometabólico y Resistencia a la Insulina">Checkup Cardiometabólico y Resistencia a la Insulina</option>
+                    <option value="Checkup Deportivo de Alto Rendimiento + Plicometría ISAK II">Checkup Deportivo de Alto Rendimiento + Plicometría ISAK II</option>
+                </select>
+            </div>
+
+            <div class="form-row-4">
+                <div class="form-group">
+                    <label>Presión Sistólica (mmHg)</label>
+                    <input type="number" name="presion_sistolica" class="form-control" value="<?= (int)($ultimoCheckup['presion_sistolica'] ?? 116) ?>">
+                </div>
+                <div class="form-group">
+                    <label>Presión Diastólica (mmHg)</label>
+                    <input type="number" name="presion_diastolica" class="form-control" value="<?= (int)($ultimoCheckup['presion_diastolica'] ?? 74) ?>">
+                </div>
+                <div class="form-group">
+                    <label>Frec. Cardíaca (lpm)</label>
+                    <input type="number" name="frecuencia_cardiaca" class="form-control" value="<?= (int)($ultimoCheckup['frecuencia_cardiaca'] ?? 66) ?>">
+                </div>
+                <div class="form-group">
+                    <label>SpO2 Oxigenación (%)</label>
+                    <input type="number" name="spo2_oxigenacion" class="form-control" value="<?= (int)($ultimoCheckup['spo2_oxigenacion'] ?? 98) ?>">
+                </div>
+            </div>
+
+            <div class="form-row-4">
+                <div class="form-group">
+                    <label>Glucosa Ayuno (mg/dL) *</label>
+                    <input type="number" step="0.1" name="glucosa_ayuno_mg" class="form-control" value="<?= (float)($ultimoCheckup['glucosa_ayuno_mg'] ?? 94.0) ?>" required>
+                </div>
+                <div class="form-group">
+                    <label>Insulina Basal (uUI/mL) *</label>
+                    <input type="number" step="0.1" name="insulina_basal_uui" class="form-control" value="<?= (float)($ultimoCheckup['insulina_basal_uui'] ?? 10.2) ?>" required>
+                </div>
+                <div class="form-group">
+                    <label>HbA1c (%)</label>
+                    <input type="number" step="0.1" name="hba1c_pct" class="form-control" value="<?= (float)($ultimoCheckup['hba1c_pct'] ?? 5.3) ?>">
+                </div>
+                <div class="form-group">
+                    <label>Triglicéridos (mg/dL)</label>
+                    <input type="number" step="0.1" name="trigliceridos_mg" class="form-control" value="<?= (float)($ultimoCheckup['trigliceridos_mg'] ?? 128.0) ?>">
+                </div>
+            </div>
+
+            <div class="form-row-4">
+                <div class="form-group">
+                    <label>Colesterol Total (mg/dL)</label>
+                    <input type="number" step="0.1" name="colesterol_total_mg" class="form-control" value="<?= (float)($ultimoCheckup['colesterol_total_mg'] ?? 184.0) ?>">
+                </div>
+                <div class="form-group">
+                    <label>Colesterol HDL (mg/dL)</label>
+                    <input type="number" step="0.1" name="hdl_mg" class="form-control" value="<?= (float)($ultimoCheckup['hdl_mg'] ?? 56.0) ?>">
+                </div>
+                <div class="form-group">
+                    <label>TSH Tiroides (mUI/L)</label>
+                    <input type="number" step="0.01" name="tsh_tiroides" class="form-control" value="<?= (float)($ultimoCheckup['tsh_tiroides'] ?? 2.10) ?>">
+                </div>
+                <div class="form-group">
+                    <label>Cortisol Matutino (ug/dL)</label>
+                    <input type="number" step="0.1" name="cortisol_matutino" class="form-control" value="<?= (float)($ultimoCheckup['cortisol_matutino'] ?? 14.5) ?>">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>Interpretación Clínica de Biomarcadores *</label>
+                <textarea name="interpretacion_biomarcadores" class="form-control" rows="2" required><?= htmlspecialchars($ultimoCheckup['interpretacion_biomarcadores'] ?? '') ?></textarea>
+            </div>
+
+            <div class="form-group">
+                <label>Plan de Acción Médico-Nutricional *</label>
+                <textarea name="plan_accion_checkup" class="form-control" rows="2" required><?= htmlspecialchars($ultimoCheckup['plan_accion_checkup'] ?? '') ?></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width:100%;justify-content:center;padding:11px;">
+                Guardar Checkup Clínico
+            </button>
+        </form>
+    </div>
+
+<?php elseif ($tabActiva === 'historial'): ?>
+    <!-- =========================================================
+         PESTAÑA 4: HISTORIAL LONGITUDINAL DEL PACIENTE
+         ========================================================= -->
+    <div class="grid-3" style="margin-bottom:24px;">
+        <div class="card">
+            <span class="text-xs text-muted">Último Peso / Composición</span>
+            <?php if ($ultimaAntro): ?>
+                <div style="font-size:1.5rem;font-weight:700;margin:6px 0;"><?= (float)$ultimaAntro['peso_kg'] ?> kg <span class="badge badge-teal">IMC <?= (float)$ultimaAntro['imc'] ?></span></div>
+                <div class="text-xs text-muted"><?= (float)$ultimaAntro['porcentaje_grasa'] ?>% grasa · <?= (float)$ultimaAntro['cintura_cm'] ?> cm cintura · Meta: <?= (int)$ultimaAntro['meta_kcal'] ?> kcal</div>
+            <?php else: ?>
+                <div class="text-sm text-muted" style="margin-top:8px;">Sin registros antropométricos.</div>
+            <?php endif; ?>
+        </div>
+
+        <div class="card">
+            <span class="text-xs text-muted">Último Tamizaje Psicológico</span>
+            <?php if ($ultimaPsico):
+                $gadInfo = interpretarGAD7((int)$ultimaPsico['gad7_ansiedad']);
+            ?>
+                <div style="font-size:1.5rem;font-weight:700;margin:6px 0;">GAD-7: <?= (int)$ultimaPsico['gad7_ansiedad'] ?> <span class="badge <?= $gadInfo['badge'] ?>"><?= $gadInfo['nivel'] ?></span></div>
+                <div class="text-xs text-muted">PHQ-9: <?= (int)$ultimaPsico['phq9_depresion'] ?> pts · BES Atracón: <?= (int)$ultimaPsico['bes_atracon'] ?> pts · Sueño: <?= (float)$ultimaPsico['calidad_sueno_hrs'] ?>h</div>
+            <?php else: ?>
+                <div class="text-sm text-muted" style="margin-top:8px;">Sin sesiones psicológicas registradas.</div>
+            <?php endif; ?>
+        </div>
+
+        <div class="card">
+            <span class="text-xs text-muted">Último Checkup Metabólico</span>
+            <?php if ($ultimoCheckup):
+                $homaInfo = interpretarHomaIR((float)$ultimoCheckup['indice_homa_ir']);
+            ?>
+                <div style="font-size:1.5rem;font-weight:700;margin:6px 0;">HOMA-IR <?= (float)$ultimoCheckup['indice_homa_ir'] ?> <span class="badge <?= $homaInfo['badge'] ?>">Score <?= (int)$ultimoCheckup['score_salud_integral'] ?></span></div>
+                <div class="text-xs text-muted">Glucosa: <?= (float)$ultimoCheckup['glucosa_ayuno_mg'] ?> mg/dL · PA: <?= (int)$ultimoCheckup['presion_sistolica'] ?>/<?= (int)$ultimoCheckup['presion_diastolica'] ?> mmHg</div>
+            <?php else: ?>
+                <div class="text-sm text-muted" style="margin-top:8px;">Sin checkups registrados.</div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="card" style="margin-bottom:22px;">
+        <div class="card-header">
+            <h2>Evolución Antropométrica</h2>
+        </div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Peso / IMC</th>
+                        <th>% Grasa / % Músculo</th>
+                        <th>Cintura / Suma Pliegues</th>
+                        <th>Diagnóstico Clínico</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($historialAntro as $ha): ?>
+                        <tr>
+                            <td><strong><?= htmlspecialchars($ha['fecha_consulta']) ?></strong></td>
+                            <td><?= (float)$ha['peso_kg'] ?> kg (IMC <?= (float)$ha['imc'] ?>)</td>
+                            <td><?= (float)$ha['porcentaje_grasa'] ?>% / <?= (float)$ha['porcentaje_musculo'] ?>%</td>
+                            <td><?= (float)$ha['cintura_cm'] ?> cm / <?= (float)$ha['suma_4_pliegues_mm'] ?> mm</td>
+                            <td class="text-sm text-muted"><?= htmlspecialchars($ha['diagnostico_nutricional']) ?></td>
+                        </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="grid-2">
+        <div class="card">
+            <div class="card-header">
+                <h2>Sesiones de Psicología y Psiconutrición</h2>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Fecha</th>
+                            <th>Escalas</th>
+                            <th>Resumen SOAP</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($historialPsico as $hp): ?>
+                            <tr>
+                                <td>
+                                    <strong>#<?= (int)$hp['numero_sesion'] ?></strong>
+                                    <div class="text-xs text-muted"><?= htmlspecialchars($hp['fecha_sesion']) ?></div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-purple">GAD-7: <?= (int)$hp['gad7_ansiedad'] ?></span>
+                                    <div class="text-xs text-muted">BES: <?= (int)$hp['bes_atracon'] ?> · PHQ: <?= (int)$hp['phq9_depresion'] ?></div>
+                                </td>
+                                <td class="text-xs text-muted"><?= nl2br(htmlspecialchars($hp['notas_soap'])) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <h2>Checkups Realizados</h2>
+            </div>
+            <div class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Folio / Fecha</th>
+                            <th>Biomarcadores</th>
+                            <th>Interpretación</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($historialCheckups as $hc): ?>
+                            <tr>
+                                <td>
+                                    <strong><?= htmlspecialchars($hc['folio_checkup']) ?></strong>
+                                    <div class="text-xs text-muted"><?= htmlspecialchars($hc['fecha_checkup']) ?></div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-teal">HOMA <?= (float)$hc['indice_homa_ir'] ?></span>
+                                    <div class="text-xs text-muted">Gluc: <?= (float)$hc['glucosa_ayuno_mg'] ?> · TG: <?= (float)$hc['trigliceridos_mg'] ?></div>
+                                </td>
+                                <td class="text-xs text-muted"><?= htmlspecialchars($hc['interpretacion_biomarcadores']) ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+<?php endif; ?>
+
+<?php renderAppEnd(); ?>
 </body>
 </html>

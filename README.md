@@ -1,33 +1,39 @@
-# 🧠🥗🔬 NutriMind & Care Pro — Plataforma Integral de Nutrición, Psicología, Psiconutrición y Checkups 360° (PHP 8 + MySQL/SQLite para cPanel)
+# Clínica NutriMind — Plataforma Integral de Nutrición, Psicología, Psiconutrición y Checkups (PHP 8 + MySQL/SQLite para cPanel)
 
-**NutriMind & Care Pro** es una plataforma clínica, recepcional, fiscal y financiera de **administración autónoma**, diseñada para operar de punta a punta un centro interdisciplinario de **Nutrición Clínica y Deportiva (ISAK II)**, **Psicología Clínica (TCC)**, **Psiconutrición (TCA y Hambre Emocional)** y **Checkups Médicos Preventivos 360°**.
+**Clínica NutriMind (NutriCare Pro)** es una plataforma clínica, recepcional, fiscal y financiera de **administración autónoma**, diseñada para operar un consultorio interdisciplinario de **Nutrición Clínica y Deportiva (ISAK II)**, **Psicología Clínica (TCC)**, **Psiconutrición** y **Checkups Médicos Preventivos 360°**.
 
-Construida en **PHP 8 (PDO) + MySQL/MariaDB (con soporte automático SQLite local) + CSS3 Glassmorphism + JS**, está optimizada tanto para ejecutarse localmente al instante (sin configurar servidor externo) como para desplegarse en cualquier servidor compartido con **cPanel** (`public_html`, `MySQL® Database Wizard`, `phpMyAdmin` y despliegue continuo con `Git™ Version Control`).
+Construida en **PHP 8 (PDO) + MySQL/MariaDB (con soporte automático SQLite local)** y un **Sistema de Diseño Editorial Clínico** (`Fraunces` + `DM Sans`, fotografía médica real, navegación separada entre Sitio Web Público y Sistema Clínico con Barra Lateral Izquierda, y pantallas de propósito único sin saturación visual).
 
 ---
 
-## 📸 Vista Previa del Diseño UX/UI e Interfaz por Módulo
+## Arquitectura UX/UI y Pantallas de Propósito Único
 
-### 1. 🌐 Portal Web con Simulador Interactivo de Pre-Checkup 360° (`index.php`)
-Presenta las **4 áreas clínicas integradas**, el directorio de los **4 especialistas titulares**, el catálogo interactivo con filtros en vivo (`Checkups 360°`, `Paquetes y Membresías`, `Psiconutrición`, `Nutrición`, `Psicología`), un **Simulador Biométrico y Psicoemocional 360°** con controles deslizantes (*range sliders*) y el sistema de reserva en línea que asigna turno automático para Sala de Espera (`N-`, `P-`, `PN-`, `CK-`).
+### 1. Sitio Web Público Editorial con Fotografía Real (`index.php`)
+Navegación pública independiente (`Especialidades`, `Checkups`, `Especialistas`, `Aranceles`, `Agendar cita` y botón discreto de `Acceso Clínico`). Incluye hero editorial cálido, tarjetas visuales con fotografía de cada área clínica, comparativa clara de Checkups preventivos, retratos reales del equipo médico con cédula profesional y formulario limpio de reserva en línea.
 
-![Vista Previa del Portal Web y Simulador 360](assets/captura_landing.svg)
+![Vista Previa del Portal Web](assets/captura_landing.svg)
 
-### 2. 🛎️ Mostrador, Monitor TV de Sala de Espera con Timbre Sonoro y Caja POS (`recepcion.php`)
-Permite operar la clínica desde el mostrador: pantalla en vivo de Sala de Espera con reloj digital, verificación de **ayuno de 8-10h para Checkups**, botón **🔔 Llamar Turno** con timbre clínico (*Web Audio API*), terminal **Punto de Venta (POS)** con desglose en vivo de comisiones médicas, redención de sesiones de paquete, abonos a cuentas por cobrar y **Corte de Caja Diario / Arqueo Ciego**.
+### 2. Mostrador y Caja con Vistas Separadas por Tarea (`recepcion.php`)
+Integra la barra lateral izquierda del sistema clínico y divide la operación de recepción en **3 sub-vistas concretas** para evitar saturación:
+- **Sala de Espera y Agenda (`?vista=agenda`)**: Flujo de pacientes paso a paso (`Marcar en Sala` → `Pasar a Consultorio` → `Cobrar`) y ventana modal (`+ Nueva Cita`) para registros rápidos.
+- **Caja POS (`?vista=caja`)**: Pantalla dedicada exclusivamente al cobro de consultas, paquetes o checkups y emisión de recibos.
+- **Corte de Caja (`?vista=corte`)**: Pantalla dedicada exclusivamente al arqueo de efectivo y cierre de turno.
 
 ![Vista Previa del Mostrador, Sala de Espera y POS](assets/captura_recepcion.svg)
 
-### 3. 🩺 Estación Clínica Triple: Nutrición ISAK + Psicología TCC/SOAP + Checkups 360° (`consulta.php`)
-Estación de trabajo interdisciplinaria con expediente clínico compartido y 3 pestañas especializadas:
-1. **🥗 Nutrición, Antropometría ISAK (4 pliegues) y Plan SMAE**
-2. **🧠 Psicología Clínica y Psiconutrición (Notas SOAP + Escalas PHQ-9, GAD-7 y BES)**
-3. **🔬 Checkup Médico Integral 360° (Signos Vitales + Glucosa + Insulina + Cálculo automático de HOMA-IR + Lípidos + Tiroides + Cortisol)**
+### 3. Consulta Clínica Enfocada por Especialidad (`consulta.php`)
+Encabezado compacto del paciente (con fotografía, edad y objetivo clínico) y **4 pestañas independientes** de propósito único:
+1. **Nutrición y Menú SMAE (`?tab=nutricion`)**: Antropometría InBody/ISAK y plan alimenticio.
+2. **Psicología y Escalas (`?tab=psicologia`)**: Tamizaje PHQ-9, GAD-7, BES y nota clínica SOAP.
+3. **Checkup 360° (`?tab=checkup`)**: Signos vitales, panel metabólico y cálculo automático de resistencia a la insulina **HOMA-IR**.
+4. **Historial Evolución (`?tab=historial`)**: Consulta longitudinal de mediciones, sesiones y checkups previos.
 
 ![Vista Previa de la Estación Clínica Triple](assets/captura_clinica.svg)
 
-### 4. 📊 Cartera de Clientes CRM, Facturación CFDI 4.0 y Administración Autónoma (`cartera.php`, `facturacion.php`, `administracion.php`)
-Gestión integral de **membresías y paquetes prepagados**, seguimiento de **cuentas por cobrar** con recordatorios por WhatsApp en 1 clic, **Facturación Electrónica CFDI 4.0** con catálogos oficiales del SAT (`Uso D01`, claves `85121800` y `85121600`), liquidación automática de **comisiones por especialista** y control de **gastos operativos y laboratorio subrogado**.
+### 4. Pacientes, Facturación CFDI 4.0 y Administración (`cartera.php`, `facturacion.php`, `administracion.php`)
+- **Directorio de Pacientes (`cartera.php`)**: Tabla limpia con fotografía de cada paciente, sesiones disponibles de paquete, estado de cuenta y modal (`+ Nuevo Paciente`).
+- **Facturación CFDI 4.0 (`facturacion.php`)**: Separada en `Facturas Emitidas` (`?vista=emitidas`) y `Timbrar Nueva Factura` (`?vista=timbrar`).
+- **Administración (`administracion.php`)**: Dashboard directivo con pestañas para `Resumen y Nómina` (con retratos de especialistas), `Gastos Operativos` y `Catálogo de Precios`.
 
 ![Vista Previa de Administración, Cartera CRM y Facturación CFDI 4.0](assets/captura_finanzas_cfdi.svg)
 

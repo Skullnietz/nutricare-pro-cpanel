@@ -607,46 +607,190 @@ function getFormasPagoSAT(): array {
     ];
 }
 
-function renderNavbar(string $paginaActiva = 'recepcion'): void {
+function getFotoEspecialista(int $id): string {
+    $fotos = [
+        1 => 'https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=600&q=80',
+        2 => 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=600&q=80',
+        3 => 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80',
+        4 => 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&w=600&q=80',
+        5 => 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=400&q=80',
+        6 => 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&w=400&q=80',
+    ];
+    return $fotos[$id] ?? $fotos[1];
+}
+
+function getFotoPaciente(int $id): string {
+    $fotos = [
+        1 => 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80',
+        2 => 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=300&q=80',
+        3 => 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+        4 => 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=300&q=80',
+        5 => 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=300&q=80',
+    ];
+    return $fotos[(($id - 1) % 5) + 1];
+}
+
+function renderPublicNav(): void {
+    ?>
+    <header class="public-header no-print">
+        <div class="container flex-between">
+            <a href="index.php" class="public-brand">
+                <div class="public-brand-mark">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </div>
+                <div class="public-brand-text">
+                    <strong>Clínica NutriMind</strong>
+                    <span>Nutrición · Psicología · Checkups</span>
+                </div>
+            </a>
+            <nav class="public-nav">
+                <a href="#especialidades">Especialidades</a>
+                <a href="#checkups">Checkups</a>
+                <a href="#equipo">Especialistas</a>
+                <a href="#precios">Aranceles</a>
+                <a href="#agendar" class="btn btn-primary btn-sm" style="color:#fff;">Agendar cita</a>
+                <a href="recepcion.php" class="staff-access-link" title="Entrar al sistema de recepción y consultorios">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Acceso Clínico
+                </a>
+            </nav>
+        </div>
+    </header>
+    <?php
+}
+
+function renderAppStart(string $titulo, string $subtitulo, string $menuActivo = 'recepcion', array $subPills = [], string $actionHtml = ''): void {
     $pdo = getDB();
     $usuarioActual = requireAuth();
-    $usuarios = $pdo->query("SELECT id, nombre, rol, area_clinica FROM usuarios WHERE activo = 1 ORDER BY id ASC")->fetchAll();
+    $usuarios = $pdo->query("SELECT id, nombre, rol FROM usuarios WHERE activo = 1 ORDER BY id ASC")->fetchAll();
+    $citasSalaCount = (int)$pdo->query("SELECT COUNT(*) FROM citas WHERE fecha_cita = '" . date('Y-m-d') . "' AND estado IN ('en_sala','por_cobrar')")->fetchColumn();
+    $facturasPendCount = (int)$pdo->query("SELECT COUNT(*) FROM pagos_caja WHERE requiere_factura = 1 AND estado_factura = 'pendiente'")->fetchColumn();
     ?>
-    <header class="topbar no-print">
-        <div class="container flex-between">
-            <div class="brand-wrap">
-                <a href="index.php" class="brand-logo">
-                    <span class="brand-icon">🧠🥗🔬</span>
-                    <div>
-                        <strong>NutriMind &amp; Care Pro</strong>
-                        <small>Nutrición · Psicología · Checkups 360° · Gestión Autónoma</small>
-                    </div>
-                </a>
+    <div class="app-shell">
+        <aside class="app-sidebar no-print">
+            <a href="recepcion.php" class="sidebar-brand">
+                <div class="sidebar-brand-mark">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg>
+                </div>
+                <div class="sidebar-brand-text">
+                    <strong>NutriMind</strong>
+                    <span>Sistema Clínico</span>
+                </div>
+            </a>
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Operación Diaria</div>
+                <nav class="sidebar-nav">
+                    <a href="recepcion.php" class="sidebar-link <?= $menuActivo === 'recepcion' ? 'active' : '' ?>">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <span>Mostrador y Caja</span>
+                        <?php if ($citasSalaCount > 0): ?>
+                            <span class="sidebar-badge"><?= $citasSalaCount ?></span>
+                        <?php endif; ?>
+                    </a>
+                    <a href="cartera.php" class="sidebar-link <?= $menuActivo === 'cartera' ? 'active' : '' ?>">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        <span>Pacientes</span>
+                    </a>
+                    <a href="consulta.php" class="sidebar-link <?= $menuActivo === 'consulta' ? 'active' : '' ?>">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+                        <span>Consulta Clínica</span>
+                    </a>
+                </nav>
             </div>
-            <nav class="nav-links">
-                <a href="index.php" class="<?= $paginaActiva === 'index' ? 'active' : '' ?>">🌐 Portal Web</a>
-                <a href="recepcion.php" class="<?= $paginaActiva === 'recepcion' ? 'active' : '' ?>">🛎️ Mostrador, Sala y POS</a>
-                <a href="cartera.php" class="<?= $paginaActiva === 'cartera' ? 'active' : '' ?>">👥 Cartera CRM</a>
-                <a href="facturacion.php" class="<?= $paginaActiva === 'facturacion' ? 'active' : '' ?>">🧾 Facturación CFDI</a>
-                <a href="consulta.php" class="<?= $paginaActiva === 'consulta' ? 'active' : '' ?>">🩺 Estación Clínica y Checkups</a>
-                <a href="administracion.php" class="<?= $paginaActiva === 'administracion' ? 'active' : '' ?>">📊 Administración</a>
-            </nav>
-            <div class="user-switcher">
-                <form method="GET" style="display:flex;align-items:center;gap:6px;">
+
+            <div class="sidebar-section">
+                <div class="sidebar-section-label">Finanzas y Dirección</div>
+                <nav class="sidebar-nav">
+                    <a href="facturacion.php" class="sidebar-link <?= $menuActivo === 'facturacion' ? 'active' : '' ?>">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg>
+                        <span>Facturación CFDI</span>
+                        <?php if ($facturasPendCount > 0): ?>
+                            <span class="sidebar-badge"><?= $facturasPendCount ?></span>
+                        <?php endif; ?>
+                    </a>
+                    <a href="administracion.php" class="sidebar-link <?= $menuActivo === 'administracion' ? 'active' : '' ?>">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+                        <span>Administración</span>
+                    </a>
+                </nav>
+            </div>
+
+            <div class="sidebar-footer">
+                <span class="sidebar-user-label">Operador en turno</span>
+                <form method="GET">
                     <?php foreach ($_GET as $k => $v): if ($k !== 'switch_user' && is_scalar($v)): ?>
                         <input type="hidden" name="<?= htmlspecialchars((string)$k) ?>" value="<?= htmlspecialchars((string)$v) ?>">
                     <?php endif; endforeach; ?>
-                    <select name="switch_user" onchange="this.form.submit()" class="select-operator" title="Cambiar operador en turno">
+                    <select name="switch_user" onchange="this.form.submit()" class="select-operator" title="Cambiar especialista o recepcionista">
                         <?php foreach ($usuarios as $u): ?>
                             <option value="<?= (int)$u['id'] ?>" <?= ((int)$usuarioActual['id'] === (int)$u['id']) ? 'selected' : '' ?>>
-                                👤 <?= htmlspecialchars($u['nombre']) ?> (<?= strtoupper($u['rol']) ?>)
+                                <?= htmlspecialchars($u['nombre']) ?> (<?= ucfirst($u['rol']) ?>)
                             </option>
                         <?php endforeach; ?>
                     </select>
                 </form>
+                <a href="index.php" class="sidebar-public-link">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                    Ver sitio web público
+                </a>
             </div>
-        </div>
-    </header>
+        </aside>
+
+        <div class="app-main">
+            <header class="app-topbar no-print">
+                <div class="topbar-title">
+                    <h1><?= htmlspecialchars($titulo) ?></h1>
+                    <?php if ($subtitulo): ?>
+                        <p><?= htmlspecialchars($subtitulo) ?></p>
+                    <?php endif; ?>
+                </div>
+                <div class="flex-gap">
+                    <?php if (!empty($subPills)): ?>
+                        <nav class="subnav-pills">
+                            <?php foreach ($subPills as $pill): ?>
+                                <a href="<?= htmlspecialchars($pill['href']) ?>" class="subnav-pill <?= !empty($pill['active']) ? 'active' : '' ?>">
+                                    <?= htmlspecialchars($pill['label']) ?>
+                                    <?php if (isset($pill['count']) && $pill['count'] !== null): ?>
+                                        <span class="pill-count"><?= (int)$pill['count'] ?></span>
+                                    <?php endif; ?>
+                                </a>
+                            <?php endforeach; ?>
+                        </nav>
+                    <?php endif; ?>
+                    <?= $actionHtml ?>
+                </div>
+            </header>
+            <main class="app-content">
     <?php
+}
+
+function renderAppEnd(): void {
+    ?>
+            </main>
+        </div>
+    </div>
+    <script>
+    function openModal(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.add('open');
+    }
+    function closeModal(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.remove('open');
+    }
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            document.querySelectorAll('.modal-backdrop.open').forEach(function(m) {
+                m.classList.remove('open');
+            });
+        }
+    });
+    </script>
+    <?php
+}
+
+function renderNavbar(string $paginaActiva = 'recepcion'): void {
+    renderPublicNav();
 }
 ?>
