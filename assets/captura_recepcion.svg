@@ -1,1 +1,68 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 650" width="100%" height="100%"><rect width="1000" height="650" fill="#f8fafc"/><rect width="1000" height="60" fill="#0f172a"/><text x="30" y="38" fill="#38bdf8" font-family="system-ui, sans-serif" font-weight="bold" font-size="20">🥗 NutriCare Pro</text><text x="210" y="36" fill="#94a3b8" font-family="system-ui, sans-serif" font-size="14">|</text><text x="230" y="36" fill="#f8fafc" font-family="system-ui, sans-serif" font-weight="600" font-size="15">Módulo de Recepción y Caja</text><text x="850" y="36" fill="#cbd5e1" font-family="system-ui, sans-serif" font-size="13">Recepción — Turno Matutino</text><rect x="40" y="80" width="210" height="90" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/><text x="60" y="110" fill="#64748b" font-family="system-ui, sans-serif" font-size="13">Citas del Día</text><text x="60" y="145" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="bold" font-size="28">6 Citas del Día</text><rect x="275" y="80" width="210" height="90" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/><text x="295" y="110" fill="#64748b" font-family="system-ui, sans-serif" font-size="13">En Sala de Espera</text><text x="295" y="145" fill="#d97706" font-family="system-ui, sans-serif" font-weight="bold" font-size="26">2 En Sala de Espera</text><rect x="510" y="80" width="210" height="90" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/><text x="530" y="110" fill="#64748b" font-family="system-ui, sans-serif" font-size="13">Solicitudes Web</text><text x="530" y="145" fill="#2563eb" font-family="system-ui, sans-serif" font-weight="bold" font-size="26">1 Solicitud Web</text><rect x="745" y="80" width="215" height="90" rx="10" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/><text x="765" y="110" fill="#64748b" font-family="system-ui, sans-serif" font-size="13">Corte de Caja Hoy</text><text x="765" y="145" fill="#059669" font-family="system-ui, sans-serif" font-weight="bold" font-size="22">$3,350 MXN en Caja Hoy</text><rect x="40" y="195" width="920" height="420" rx="12" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/><text x="65" y="235" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="bold" font-size="18">Tabla de Control de Citas y Sala de Espera</text><rect x="65" y="255" width="870" height="35" fill="#f1f5f9"/><text x="80" y="278" fill="#475569" font-family="system-ui, sans-serif" font-weight="bold" font-size="12">PACIENTE</text><text x="260" y="278" fill="#475569" font-family="system-ui, sans-serif" font-weight="bold" font-size="12">ESPECIALISTA</text><text x="430" y="278" fill="#475569" font-family="system-ui, sans-serif" font-weight="bold" font-size="12">LLEGADA / HORA</text><text x="570" y="278" fill="#475569" font-family="system-ui, sans-serif" font-weight="bold" font-size="12">ESTADO</text><text x="720" y="278" fill="#475569" font-family="system-ui, sans-serif" font-weight="bold" font-size="12">ACCIONES</text><line x1="65" y1="350" x2="935" y2="350" stroke="#f1f5f9" stroke-width="1"/><text x="80" y="320" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="600" font-size="14">Valeria Ríos Castañeda</text><text x="260" y="320" fill="#334155" font-family="system-ui, sans-serif" font-size="13">Dra. Sofía Mendoza</text><text x="430" y="320" fill="#334155" font-family="system-ui, sans-serif" font-size="13">09:15 AM (Check-in 09:10)</text><rect x="570" y="303" width="120" height="24" rx="12" fill="#fef3c7"/><text x="582" y="319" fill="#d97706" font-family="system-ui, sans-serif" font-weight="bold" font-size="11">En Sala de Espera</text><rect x="720" y="301" width="100" height="26" rx="5" fill="#0d9488"/><text x="730" y="318" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="bold">Pasar a Consulta</text><rect x="828" y="301" width="70" height="26" rx="5" fill="#25d366"/><text x="836" y="318" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="bold">WhatsApp</text><line x1="65" y1="420" x2="935" y2="420" stroke="#f1f5f9" stroke-width="1"/><text x="80" y="390" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="600" font-size="14">Carlos Eduardo Gomez</text><text x="260" y="390" fill="#334155" font-family="system-ui, sans-serif" font-size="13">Dr. Alejandro Vega</text><text x="430" y="390" fill="#334155" font-family="system-ui, sans-serif" font-size="13">10:00 AM (Check-in 09:55)</text><rect x="570" y="373" width="120" height="24" rx="12" fill="#e0f2fe"/><text x="592" y="389" fill="#0284c7" font-family="system-ui, sans-serif" font-weight="bold" font-size="11">En Consulta</text><rect x="720" y="371" width="65" height="26" rx="5" fill="#059669"/><text x="733" y="388" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="bold">Cobrar</text><rect x="793" y="371" width="70" height="26" rx="5" fill="#25d366"/><text x="801" y="388" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="bold">WhatsApp</text><line x1="65" y1="490" x2="935" y2="490" stroke="#f1f5f9" stroke-width="1"/><text x="80" y="460" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="600" font-size="14">Mariana Ortiz Torres</text><text x="260" y="460" fill="#334155" font-family="system-ui, sans-serif" font-size="13">Dra. Sofía Mendoza</text><text x="430" y="460" fill="#334155" font-family="system-ui, sans-serif" font-size="13">11:30 AM</text><rect x="570" y="443" width="120" height="24" rx="12" fill="#dcfce7"/><text x="595" y="459" fill="#15803d" font-family="system-ui, sans-serif" font-weight="bold" font-size="11">Confirmada</text><rect x="720" y="441" width="70" height="26" rx="5" fill="#25d366"/><text x="728" y="458" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="bold">WhatsApp</text><text x="80" y="530" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="600" font-size="14">Fernando Ruiz Diaz</text><text x="260" y="530" fill="#334155" font-family="system-ui, sans-serif" font-size="13">Dr. Alejandro Vega</text><text x="430" y="530" fill="#334155" font-family="system-ui, sans-serif" font-size="13">12:15 PM</text><rect x="570" y="513" width="120" height="24" rx="12" fill="#fef3c7"/><text x="582" y="529" fill="#d97706" font-family="system-ui, sans-serif" font-weight="bold" font-size="11">En Sala de Espera</text><rect x="720" y="511" width="100" height="26" rx="5" fill="#0d9488"/><text x="730" y="528" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="bold">Pasar a Consulta</text><rect x="828" y="511" width="70" height="26" rx="5" fill="#25d366"/><text x="836" y="528" fill="#ffffff" font-family="system-ui, sans-serif" font-size="11" font-weight="bold">WhatsApp</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 680" width="100%" height="100%">
+  <rect width="1100" height="680" fill="#f4f7fb"/>
+  <rect width="1100" height="58" fill="#0f172a"/>
+  <text x="28" y="36" fill="#5eead4" font-family="system-ui, sans-serif" font-weight="800" font-size="17">🧠🥗🔬 NutriMind &amp; Care Pro — Mostrador, Sala de Espera en Vivo y Terminal POS</text>
+
+  <!-- Waiting Room Live Monitor -->
+  <rect x="28" y="76" width="1044" height="175" rx="18" fill="#0f172a" stroke="#334155"/>
+  <circle cx="52" cy="102" r="5" fill="#10b981"/>
+  <text x="65" y="106" fill="#5eead4" font-family="system-ui, sans-serif" font-weight="700" font-size="11">MONITOR DE SALA DE ESPERA Y LLAMADO SONORO A CONSULTORIOS EN VIVO</text>
+  <text x="48" y="132" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="800" font-size="19">Flujo de Pacientes en Sala, Checkups y Consultorios</text>
+  <rect x="920" y="88" width="130" height="38" rx="8" fill="#1e293b"/>
+  <text x="942" y="112" fill="#5eead4" font-family="monospace" font-weight="700" font-size="15">10:32:18 HRS</text>
+
+  <!-- Turn Cards -->
+  <rect x="48" y="150" width="320" height="82" rx="12" fill="#1e293b" stroke="#5eead4" stroke-width="1.5"/>
+  <rect x="62" y="165" width="64" height="32" rx="8" fill="#db2777"/>
+  <text x="72" y="186" fill="#ffffff" font-family="monospace" font-weight="800" font-size="15">PN-01</text>
+  <text x="138" y="175" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="700" font-size="13.5">Mariana Fernández L.</text>
+  <text x="138" y="194" fill="#5eead4" font-family="system-ui, sans-serif" font-size="11.5">📍 Consultorio 3 (Psiconutrición)</text>
+  <text x="138" y="212" fill="#cbd5e1" font-family="system-ui, sans-serif" font-size="11">🩺 EN CONSULTA · 🔔 Llamar</text>
+
+  <rect x="388" y="150" width="320" height="82" rx="12" fill="#1e293b" stroke="#475569"/>
+  <rect x="402" y="165" width="64" height="32" rx="8" fill="#7c3aed"/>
+  <text x="416" y="186" fill="#ffffff" font-family="monospace" font-weight="800" font-size="15">P-01</text>
+  <text x="478" y="175" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="700" font-size="13.5">Jorge Eduardo Ramírez</text>
+  <text x="478" y="194" fill="#c4b5fd" font-family="system-ui, sans-serif" font-size="11.5">📍 Consultorio 2 (Psicología TCC)</text>
+  <text x="478" y="212" fill="#fcd34d" font-family="system-ui, sans-serif" font-size="11">⏳ EN SALA (10:18) · 🔔 Llamar</text>
+
+  <rect x="728" y="150" width="324" height="82" rx="12" fill="#1e293b" stroke="#475569"/>
+  <rect x="742" y="165" width="64" height="32" rx="8" fill="#2563eb"/>
+  <text x="752" y="186" fill="#ffffff" font-family="monospace" font-weight="800" font-size="15">CK-02</text>
+  <text x="818" y="175" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="700" font-size="13.5">Checkup Deportivo ISAK</text>
+  <text x="818" y="194" fill="#93c5fd" font-family="system-ui, sans-serif" font-size="11.5">🔬 Ayuno 8h Verificado</text>
+  <text x="818" y="212" fill="#cbd5e1" font-family="system-ui, sans-serif" font-size="11">Dr. Alejandro Vega · 11:30 hrs</text>
+
+  <!-- POS & Cash Closure -->
+  <rect x="28" y="270" width="510" height="380" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+  <rect x="28" y="270" width="510" height="5" rx="2" fill="#0d9488"/>
+  <text x="48" y="305" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="800" font-size="16">💳 Punto de Venta (POS) — Consultas, Checkups y Paquetes</text>
+  <rect x="48" y="325" width="470" height="38" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="60" y="349" fill="#0f172a" font-family="system-ui, sans-serif" font-size="12.5">Cliente: Mariana Fernández (Paquete Activo: 3 Nut / 2 Psi / 1 Chk)</text>
+  <rect x="48" y="375" width="470" height="38" rx="8" fill="#f8fafc" stroke="#cbd5e1"/>
+  <text x="60" y="399" fill="#0f172a" font-family="system-ui, sans-serif" font-size="12.5">Servicio: [PAQUETE] Paquete Mensual Equilibrio Total — $6,200.00 MXN</text>
+  <rect x="48" y="428" width="470" height="46" rx="10" fill="#f0fdfa" stroke="#5eead4"/>
+  <text x="60" y="455" fill="#0f766e" font-family="system-ui, sans-serif" font-weight="700" font-size="12">💡 Desglose Autónomo (70%): Comisión: $4,340 · Clínica: $1,860 · Saldo: $0</text>
+  <rect x="48" y="490" width="470" height="34" rx="8" fill="#fef3c7"/>
+  <text x="60" y="512" fill="#92400e" font-family="system-ui, sans-serif" font-weight="700" font-size="12">☑️ Solicita Factura CFDI 4.0 (Enviar a bandeja de timbrado SAT D01)</text>
+  <rect x="48" y="540" width="470" height="42" rx="10" fill="#0d9488"/>
+  <text x="125" y="566" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="700" font-size="13.5">✅ Emitir Recibo POS y Actualizar Cartera CRM</text>
+
+  <!-- Arqueo y Corte de Caja -->
+  <rect x="562" y="270" width="510" height="380" rx="16" fill="#ffffff" stroke="#e2e8f0" stroke-width="1.5"/>
+  <rect x="562" y="270" width="510" height="5" rx="2" fill="#2563eb"/>
+  <text x="582" y="305" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="800" font-size="16">📊 Corte de Caja Diario, Comisiones y Arqueo Ciego</text>
+  <rect x="582" y="325" width="470" height="125" rx="10" fill="#f8fafc" stroke="#e2e8f0"/>
+  <text x="598" y="350" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="700" font-size="12.5">REC-20261019-101 · Mariana Fernández · $6,200.00 · [TIMBRADA CFDI]</text>
+  <text x="598" y="378" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="700" font-size="12.5">REC-20261019-102 · Psiconutrición TCA · $950.00 · [TIMBRADA CFDI]</text>
+  <text x="598" y="406" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="700" font-size="12.5">REC-20261019-103 · Checkup Deportivo · $1,350.00 · [Resta: $450]</text>
+  <text x="598" y="434" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="700" font-size="12.5">REC-20261019-104 · Psicoterapia TCC · $850.00 · [PENDIENTE CFDI]</text>
+
+  <rect x="582" y="468" width="470" height="160" rx="12" fill="#f1f5f9" stroke="#cbd5e1"/>
+  <text x="598" y="494" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="800" font-size="14">🔒 Cierre de Turno y Arqueo de Efectivo en Gaveta</text>
+  <text x="598" y="518" fill="#475569" font-family="system-ui, sans-serif" font-size="12">Fondo Fijo: $1,000 + Efectivo Hoy: $1,350 - Gastos Caja: $1,850 = Esperado: $500</text>
+  <rect x="598" y="535" width="438" height="36" rx="8" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="612" y="558" fill="#0f766e" font-family="system-ui, sans-serif" font-weight="700" font-size="12.5">Efectivo Contado Físico: $500.00 MXN — Arqueo Cuadrado ($0.00)</text>
+  <rect x="598" y="582" width="438" height="34" rx="8" fill="#0f172a"/>
+  <text x="705" y="604" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="700" font-size="12">📥 Guardar Corte de Caja Auditable</text>
+</svg>
