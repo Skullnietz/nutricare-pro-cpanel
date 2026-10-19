@@ -1,75 +1,108 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 680" width="100%" height="100%">
-  <rect width="1100" height="680" fill="#f4f7fb"/>
-  <rect width="1100" height="58" fill="#0f172a"/>
-  <text x="28" y="36" fill="#5eead4" font-family="system-ui, sans-serif" font-weight="800" font-size="17">🩺 Estación Clínica Triple: Nutrición ISAK + Psicología TCC/SOAP + Checkups 360°</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 660" width="100%">
+  <defs>
+    <filter id="cardShadow" x="-4%" y="-4%" width="108%" height="112%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#172422" flood-opacity="0.05"/>
+    </filter>
+  </defs>
 
-  <!-- Patient Header -->
-  <rect x="28" y="74" width="1044" height="96" rx="16" fill="#1e293b"/>
-  <rect x="48" y="90" width="110" height="22" rx="11" fill="#ccfbf1"/>
-  <text x="58" y="105" fill="#0f766e" font-family="monospace" font-weight="700" font-size="11">EXP-2026-001</text>
-  <text x="48" y="132" fill="#ffffff" font-family="system-ui, sans-serif" font-weight="800" font-size="20">Mariana Fernández López (34 años) — Psiconutrición Integral + Checkup 360°</text>
-  <text x="48" y="154" fill="#cbd5e1" font-family="system-ui, sans-serif" font-size="12">🥗 Dra. Sofía Mendoza (Nutrición/Checkup) · 🧠 Dr. Daniel Herrera (Psiconutrición TCA) · 🖨️ Reporte PDF</text>
+  <rect width="1200" height="660" fill="#f3f4f1"/>
 
-  <!-- 4 Unified Clinical KPIs -->
-  <rect x="28" y="186" width="248" height="86" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
-  <rect x="28" y="186" width="5" height="86" rx="2" fill="#0d9488"/>
-  <text x="44" y="208" fill="#64748b" font-family="system-ui, sans-serif" font-weight="700" font-size="10.5">COMPOSICIÓN CORPORAL ISAK</text>
-  <text x="44" y="234" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="800" font-size="18">69.8 kg · IMC 26.2</text>
-  <text x="44" y="254" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">Grasa: 31.2% · 4 Pliegues: 61 mm</text>
+  <!-- Left Sidebar -->
+  <rect width="235" height="660" fill="#142423"/>
+  <rect x="22" y="20" width="32" height="32" rx="8" fill="#1f7a68"/>
+  <text x="64" y="34" font-family="Georgia, serif" font-size="16" font-weight="700" fill="#ffffff">NutriMind</text>
+  <text x="64" y="48" font-family="sans-serif" font-size="10" fill="#8ca39e">SISTEMA CLÍNICO</text>
+  <line x1="0" y1="68" x2="235" y2="68" stroke="#243836"/>
 
-  <rect x="292" y="186" width="248" height="86" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
-  <rect x="292" y="186" width="5" height="86" rx="2" fill="#2563eb"/>
-  <text x="308" y="208" fill="#64748b" font-family="system-ui, sans-serif" font-weight="700" font-size="10.5">ÚLTIMO CHECKUP 360° (HOMA-IR)</text>
-  <text x="308" y="234" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="800" font-size="18">HOMA-IR: 2.37</text>
-  <text x="308" y="254" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">PA: 116/74 mmHg · Gluc: 94 mg/dL</text>
+  <text x="24" y="96" font-family="sans-serif" font-size="10" font-weight="700" fill="#6f8782">OPERACIÓN DIARIA</text>
+  <text x="48" y="131" font-family="sans-serif" font-size="13" fill="#b0c2be">Mostrador y Caja</text>
+  <text x="48" y="170" font-family="sans-serif" font-size="13" fill="#b0c2be">Pacientes</text>
 
-  <rect x="556" y="186" width="248" height="86" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
-  <rect x="556" y="186" width="5" height="86" rx="2" fill="#7c3aed"/>
-  <text x="572" y="208" fill="#64748b" font-family="system-ui, sans-serif" font-weight="700" font-size="10.5">TAMIZAJE PSICOEMOCIONAL</text>
-  <text x="572" y="234" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="800" font-size="18">GAD-7: 8 · BES: 12</text>
-  <text x="572" y="254" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">PHQ-9: 5 · Sueño: 7.0 hrs/noche</text>
+  <rect x="14" y="186" width="207" height="38" rx="9" fill="#0f5247"/>
+  <text x="48" y="209" font-family="sans-serif" font-size="13" font-weight="600" fill="#ffffff">Consulta Clínica</text>
 
-  <rect x="820" y="186" width="252" height="86" rx="12" fill="#ffffff" stroke="#e2e8f0"/>
-  <rect x="820" y="186" width="5" height="86" rx="2" fill="#d97706"/>
-  <text x="836" y="208" fill="#64748b" font-family="system-ui, sans-serif" font-weight="700" font-size="10.5">PAQUETE ACTIVO EN CARTERA</text>
-  <text x="836" y="234" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="800" font-size="18">🥗 3 · 🧠 2 · 🔬 1</text>
-  <text x="836" y="254" fill="#64748b" font-family="system-ui, sans-serif" font-size="11">Paquete Equilibrio Total</text>
+  <text x="24" y="258" font-family="sans-serif" font-size="10" font-weight="700" fill="#6f8782">FINANZAS Y DIRECCIÓN</text>
+  <text x="48" y="288" font-family="sans-serif" font-size="13" fill="#b0c2be">Facturación CFDI</text>
+  <text x="48" y="326" font-family="sans-serif" font-size="13" fill="#b0c2be">Administración</text>
 
-  <!-- 3 Specialty Tabs -->
-  <rect x="28" y="288" width="1044" height="44" rx="12" fill="#e2e8f0"/>
-  <rect x="34" y="294" width="335" height="32" rx="8" fill="#ffffff"/>
-  <text x="52" y="315" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="700" font-size="12">🥗 1. Nutrición, Antropometría ISAK y SMAE</text>
-  <text x="395" y="315" fill="#475569" font-family="system-ui, sans-serif" font-weight="700" font-size="12">🧠 2. Psicología TCC y Psiconutrición (SOAP + BES)</text>
-  <text x="745" y="315" fill="#475569" font-family="system-ui, sans-serif" font-weight="700" font-size="12">🔬 3. Checkup 360°, HOMA-IR y Biomarcadores</text>
+  <!-- Topbar -->
+  <rect x="235" y="0" width="965" height="72" fill="#ffffff"/>
+  <line x1="235" y1="72" x2="1200" y2="72" stroke="#e4e2dc"/>
+  <text x="268" y="34" font-family="Georgia, serif" font-size="20" font-weight="700" fill="#172422">Consulta Clínica</text>
+  <text x="268" y="53" font-family="sans-serif" font-size="12" fill="#5a6966">Expediente electrónico de Nutrición, Psicología y Checkup</text>
 
-  <!-- 3 History / Evaluation Panels -->
-  <rect x="28" y="348" width="336" height="300" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
-  <text x="46" y="378" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="800" font-size="14.5">🔬 Checkup 360° &amp; Biomarcadores</text>
-  <text x="46" y="406" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• Presión Arterial: 116/74 mmHg (FC 66)</text>
-  <text x="46" y="430" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• Glucosa: 94 mg/dL · Insulina: 10.2 μUI</text>
-  <text x="46" y="454" fill="#0f766e" font-family="system-ui, sans-serif" font-weight="700" font-size="12">• Índice HOMA-IR: 2.37 (En descenso)</text>
-  <text x="46" y="478" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• Triglicéridos: 128 mg/dL · HDL: 56</text>
-  <text x="46" y="502" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• TSH Tiroides: 2.10 · Cortisol: 14.5</text>
-  <rect x="46" y="525" width="300" height="40" rx="8" fill="#dbeafe"/>
-  <text x="60" y="550" fill="#1d4ed8" font-family="system-ui, sans-serif" font-weight="700" font-size="12">Score de Salud Integral 360°: 86 / 100</text>
+  <!-- 4 Clinical Subnav Pills -->
+  <rect x="595" y="18" width="575" height="36" rx="10" fill="#f3f4f1" stroke="#e4e2dc"/>
+  <rect x="599" y="22" width="150" height="28" rx="7" fill="#ffffff" filter="url(#cardShadow)"/>
+  <text x="674" y="40" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="700" fill="#0f5247">1. Nutrición y Menú</text>
+  <text x="822" y="40" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#5a6966">2. Psicología TCC</text>
+  <text x="955" y="40" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#5a6966">3. Checkup 360°</text>
+  <text x="1095" y="40" text-anchor="middle" font-family="sans-serif" font-size="11" font-weight="600" fill="#5a6966">4. Historial (7)</text>
 
-  <rect x="382" y="348" width="336" height="300" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
-  <text x="400" y="378" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="800" font-size="14.5">🥗 Antropometría ISAK y Plan SMAE</text>
-  <text x="400" y="406" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• Peso: 69.8 kg (-2.6 kg grasa corporal)</text>
-  <text x="400" y="430" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• 4 Pliegues ISAK: 61.0 mm · ICT: 0.50</text>
-  <text x="400" y="454" fill="#0f766e" font-family="system-ui, sans-serif" font-weight="700" font-size="12">• Meta Mifflin-St Jeor: 1,800 kcal/día</text>
-  <text x="400" y="478" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• Macros: P 28% (126g) · C 42% · L 30%</text>
-  <text x="400" y="502" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• Equivalentes SMAE + 5 Tiempos</text>
-  <rect x="400" y="525" width="300" height="40" rx="8" fill="#ccfbf1"/>
-  <text x="414" y="550" fill="#0f766e" font-family="system-ui, sans-serif" font-weight="700" font-size="12">Plan Antiinflamatorio + Saciedad Consciente</text>
+  <!-- Patient Context Bar -->
+  <rect x="268" y="92" width="904" height="68" rx="12" fill="#e6f2ef" stroke="#cde2dc"/>
+  <circle cx="304" cy="126" r="22" fill="#0f5247"/>
+  <text x="304" y="131" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="700" fill="#ffffff">MF</text>
+  <text x="338" y="120" font-family="Georgia, serif" font-size="16" font-weight="700" fill="#172422">Mariana Fernández López</text>
+  <rect x="545" y="106" width="90" height="20" rx="10" fill="#ffffff"/>
+  <text x="590" y="120" text-anchor="middle" font-family="sans-serif" font-size="10" font-weight="700" fill="#0f5247">EXP-2026-001</text>
+  <text x="338" y="142" font-family="sans-serif" font-size="12" fill="#5a6966">Objetivo: Control de resistencia a la insulina y recomposición corporal · Alergias: Lactosa</text>
 
-  <rect x="736" y="348" width="336" height="300" rx="14" fill="#ffffff" stroke="#e2e8f0"/>
-  <text x="754" y="378" fill="#0f172a" font-family="system-ui, sans-serif" font-weight="800" font-size="14.5">🧠 Psicología TCC &amp; Psiconutrición</text>
-  <text x="754" y="406" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• Enfoque: TCC + ACT / Mindful Eating</text>
-  <text x="754" y="430" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• GAD-7 Ansiedad: descendió de 13 a 8</text>
-  <text x="754" y="454" fill="#6b21a8" font-family="system-ui, sans-serif" font-weight="700" font-size="12">• Escala BES Atracón: descendió de 21 a 12</text>
-  <text x="754" y="478" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• Nota Clínica Estructurada SOAP</text>
-  <text x="754" y="502" fill="#334155" font-family="system-ui, sans-serif" font-size="12">• Acuerdo: Colación alta saciedad 17:30h</text>
-  <rect x="754" y="525" width="300" height="40" rx="8" fill="#f3e8ff"/>
-  <text x="768" y="550" fill="#6b21a8" font-family="system-ui, sans-serif" font-weight="700" font-size="12">Reducción 70% en Hambre Emocional</text>
+  <!-- 2-Column Focused Clinical Workspace -->
+  <!-- Left Card: Antropometria -->
+  <rect x="268" y="180" width="440" height="450" rx="14" fill="#ffffff" stroke="#e4e2dc" filter="url(#cardShadow)"/>
+  <text x="292" y="214" font-family="Georgia, serif" font-size="17" font-weight="700" fill="#172422">1. Antropometría InBody / ISAK II</text>
+  <text x="292" y="232" font-family="sans-serif" font-size="11" fill="#5a6966">Medición corporal y cálculo energético del paciente.</text>
+
+  <!-- Inputs Grid -->
+  <rect x="292" y="252" width="90" height="48" rx="8" fill="#faf9f6" stroke="#d4d1c7"/>
+  <text x="302" y="268" font-family="sans-serif" font-size="9" fill="#5a6966">PESO (KG)</text>
+  <text x="302" y="289" font-family="sans-serif" font-size="14" font-weight="700" fill="#172422">69.8</text>
+
+  <rect x="392" y="252" width="90" height="48" rx="8" fill="#faf9f6" stroke="#d4d1c7"/>
+  <text x="402" y="268" font-family="sans-serif" font-size="9" fill="#5a6966">TALLA (CM)</text>
+  <text x="402" y="289" font-family="sans-serif" font-size="14" font-weight="700" fill="#172422">163.0</text>
+
+  <rect x="492" y="252" width="90" height="48" rx="8" fill="#faf9f6" stroke="#d4d1c7"/>
+  <text x="502" y="268" font-family="sans-serif" font-size="9" fill="#5a6966">% GRASA</text>
+  <text x="502" y="289" font-family="sans-serif" font-size="14" font-weight="700" fill="#0f5247">31.2%</text>
+
+  <rect x="592" y="252" width="92" height="48" rx="8" fill="#faf9f6" stroke="#d4d1c7"/>
+  <text x="602" y="268" font-family="sans-serif" font-size="9" fill="#5a6966">% MÚSCULO</text>
+  <text x="602" y="289" font-family="sans-serif" font-size="14" font-weight="700" fill="#172422">27.9%</text>
+
+  <!-- Pliegues ISAK -->
+  <rect x="292" y="316" width="188" height="48" rx="8" fill="#faf9f6" stroke="#d4d1c7"/>
+  <text x="302" y="332" font-family="sans-serif" font-size="9" fill="#5a6966">SUMA 4 PLIEGUES ISAK</text>
+  <text x="302" y="353" font-family="sans-serif" font-size="14" font-weight="700" fill="#172422">61.0 mm (Descenso -8.5mm)</text>
+
+  <rect x="492" y="316" width="192" height="48" rx="8" fill="#faf9f6" stroke="#d4d1c7"/>
+  <text x="502" y="332" font-family="sans-serif" font-size="9" fill="#5a6966">META PRESCRITA (Mifflin-St Jeor)</text>
+  <text x="502" y="353" font-family="sans-serif" font-size="14" font-weight="700" fill="#0f5247">1,800 kcal/día</text>
+
+  <!-- Diagnostico -->
+  <rect x="292" y="382" width="392" height="86" rx="8" fill="#faf9f6" stroke="#d4d1c7"/>
+  <text x="304" y="402" font-family="sans-serif" font-size="10" font-weight="700" fill="#5a6966">DIAGNÓSTICO NUTRICIONAL PES</text>
+  <text x="304" y="422" font-family="sans-serif" font-size="11" fill="#172422">Reducción de -2.6 kg de masa grasa con preservación de masa</text>
+  <text x="304" y="440" font-family="sans-serif" font-size="11" fill="#172422">magra (+0.09 kg) y disminución de 4.5 cm de cintura.</text>
+
+  <!-- Right Card: Plan SMAE -->
+  <rect x="732" y="180" width="440" height="450" rx="14" fill="#ffffff" stroke="#e4e2dc" filter="url(#cardShadow)"/>
+  <text x="756" y="214" font-family="Georgia, serif" font-size="17" font-weight="700" fill="#172422">2. Plan Alimenticio y Equivalentes SMAE</text>
+  <text x="756" y="232" font-family="sans-serif" font-size="11" fill="#5a6966">Menú personalizado antiinflamatorio de bajo índice glucémico.</text>
+
+  <rect x="756" y="252" width="392" height="58" rx="8" fill="#faf9f6" stroke="#d4d1c7"/>
+  <text x="768" y="270" font-family="sans-serif" font-size="10" font-weight="700" fill="#0f5247">DESAYUNO</text>
+  <text x="768" y="288" font-family="sans-serif" font-size="11" fill="#172422">Omelette con espinacas, champiñones, pan masa madre y aguacate.</text>
+
+  <rect x="756" y="322" width="392" height="58" rx="8" fill="#faf9f6" stroke="#d4d1c7"/>
+  <text x="768" y="340" font-family="sans-serif" font-size="10" font-weight="700" fill="#0f5247">COMIDA PRINCIPAL</text>
+  <text x="768" y="358" font-family="sans-serif" font-size="11" fill="#172422">150g salmón a la plancha + quinoa + lentejas + ensalada verde.</text>
+
+  <rect x="756" y="392" width="392" height="58" rx="8" fill="#faf9f6" stroke="#d4d1c7"/>
+  <text x="768" y="410" font-family="sans-serif" font-size="10" font-weight="700" fill="#0f5247">COLACIÓN VESPERTINA (ACUERDO PSICONUTRICIÓN)</text>
+  <text x="768" y="428" font-family="sans-serif" font-size="11" fill="#172422">Manzana con crema de almendras (alta saciedad 17:30 hrs).</text>
+
+  <rect x="756" y="562" width="392" height="42" rx="9" fill="#0f5247"/>
+  <text x="952" y="588" text-anchor="middle" font-family="sans-serif" font-size="13" font-weight="600" fill="#ffffff">Guardar Evaluación Nutricional y Plan</text>
 </svg>

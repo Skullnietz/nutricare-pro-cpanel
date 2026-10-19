@@ -39,39 +39,38 @@ Encabezado compacto del paciente (con fotografía, edad y objetivo clínico) y *
 
 ---
 
-## 🏗️ Arquitectura Operativa de Punta a Punta
+## Arquitectura Operativa de Punta a Punta
 
 ```mermaid
 flowchart LR
-    subgraph Web["🌐 Portal Web (index.php)"]
-        A[Visitante / Paciente] --> B[Simulador 360° IMC + ICT + Estrés]
-        B --> C[Reserva Online con Turno y Aviso de Ayuno]
+    subgraph Web["Sitio Web Público (index.php)"]
+        A["Visitante / Paciente"] --> B["Especialidades, Checkups y Equipo Médico"]
+        B --> C["Reserva de Cita con Turno y Aviso de Ayuno"]
     end
 
-    subgraph Mostrador["🛎️ Mostrador, Sala de Espera y POS (recepcion.php)"]
-        C --> D[Monitor TV Sala de Espera + Timbre Sonoro]
-        D -->|Check-in / Triage Ayuno| E[Turnos: N-01, P-01, PN-01, CK-01]
-        E --> F[Terminal POS: Consultas, Checkups, Paquetes y Abonos]
-        F --> G[Corte de Caja Diario y Arqueo Ciego]
+    subgraph Mostrador["Mostrador y Caja (recepcion.php)"]
+        C --> D["Vista 1: Sala de Espera y Agenda (?vista=agenda)"]
+        D --> E["Vista 2: Cobro en Caja POS (?vista=caja)"]
+        E --> F["Vista 3: Corte de Caja Diario (?vista=corte)"]
     end
 
-    subgraph Clinica["🩺 Estación Clínica Triple (consulta.php)"]
-        E --> H1[🥗 Nutrición ISAK + Plan SMAE]
-        E --> H2[🧠 Psicología TCC/SOAP + PHQ-9/GAD-7/BES]
-        E --> H3[🔬 Checkup 360°: Signos Vitales + HOMA-IR + Lípidos + Cortisol]
-        H1 & H2 & H3 --> I[🖨️ Reporte Integral Imprimible / PDF\nimprimir_plan.php]
+    subgraph Clinica["Consulta Clínica (consulta.php)"]
+        D --> G1["Pestaña 1: Nutrición ISAK + Menú SMAE"]
+        D --> G2["Pestaña 2: Psicología TCC/SOAP + Escalas"]
+        D --> G3["Pestaña 3: Checkup 360° (HOMA-IR + Biomarcadores)"]
+        G1 & G2 & G3 --> H["Pestaña 4: Historial y Reporte PDF (imprimir_plan.php)"]
     end
 
-    subgraph Backoffice["📊 Cartera CRM, Facturación CFDI y Finanzas"]
-        F --> J[👥 Cartera CRM y Cuentas por Cobrar\ncartera.php]
-        F --> K[🧾 Facturación Electrónica CFDI 4.0\nfacturacion.php]
-        G --> L[📊 Administración Autónoma: Gastos, Comisiones y Utilidad\nadministracion.php]
+    subgraph Backoffice["Pacientes, Facturación y Dirección"]
+        E --> I["Directorio de Pacientes y Paquetes (cartera.php)"]
+        E --> J["Facturación CFDI 4.0 (facturacion.php)"]
+        F --> K["Administración: Nómina, Gastos y Catálogo (administracion.php)"]
     end
 ```
 
 ---
 
-## 🧮 Fórmulas Clínicas, Escalas Psicométricas, Biomarcadores y Reglas Fiscales
+## Fórmulas Clínicas, Escalas Psicométricas, Biomarcadores y Reglas Fiscales
 
 | Especialidad / Área | Algoritmo / Escala / Norma Implementada | Aplicación en el Sistema |
 | :--- | :--- | :--- |
@@ -84,7 +83,7 @@ flowchart LR
 
 ---
 
-## 🗄️ Modelo Entidad-Relación de la Base de Datos (`database.sql` — 12 Tablas)
+## Modelo Entidad-Relación de la Base de Datos (`database.sql` — 12 Tablas)
 
 ```mermaid
 erDiagram
@@ -111,32 +110,32 @@ erDiagram
 
 ---
 
-## 📂 Estructura Completa de Archivos
+## Estructura Completa de Archivos
 
 | Archivo | Rol en la Plataforma |
 | :--- | :--- |
 | [`database.sql`](database.sql) | Esquema MySQL 8 / MariaDB InnoDB con **12 tablas** y datos semilla completos para demostración inmediata |
-| [`db_connection.php`](db_connection.php) | Núcleo de conexión dual (**MySQL para cPanel + Auto-SQLite Local**), seguridad CSRF, fórmulas clínicas y catálogos SAT |
-| [`index.php`](index.php) | Landing page moderna con orbes animados, **Simulador 360° interactivo**, filtros de catálogo en vivo y reserva online |
-| [`recepcion.php`](recepcion.php) | Mostrador, monitor TV de Sala de Espera con **timbre sonoro**, triage de Checkups, terminal **POS** y Corte de Caja diario |
-| [`cartera.php`](cartera.php) | Cartera de Clientes CRM, control de paquetes/checkups prepagados, cuentas por cobrar, abonos y ficha fiscal CFDI |
-| [`facturacion.php`](facturacion.php) | Centro de Facturación Electrónica **CFDI 4.0**, timbrado de recibos pendientes y representación impresa PDF |
-| [`consulta.php`](consulta.php) | Estación clínica interdisciplinaria con 3 pestañas: **Nutrición ISAK + SMAE**, **Psicología TCC/SOAP** y **Checkups 360° (HOMA-IR)** |
-| [`administracion.php`](administracion.php) | Administración autónoma: Estado de resultados, liquidación de comisiones por especialista, gastos operativos y catálogo |
+| [`db_connection.php`](db_connection.php) | Núcleo de conexión dual (**MySQL para cPanel + Auto-SQLite Local**), seguridad CSRF, helpers de fotografía clínica y layout (`renderPublicNav`, `renderAppStart`) |
+| [`index.php`](index.php) | Sitio web público editorial con fotografía médica real, tarjetas visuales de especialidades, comparativa de Checkups, retratos de especialistas y reserva online |
+| [`recepcion.php`](recepcion.php) | Módulo de Mostrador y Caja con 3 sub-vistas de propósito único (`?vista=agenda`, `?vista=caja`, `?vista=corte`) y modal para nueva cita |
+| [`cartera.php`](cartera.php) | Directorio de Pacientes con fotografía, control de paquetes prepagados, cuentas por cobrar y modal para alta de paciente |
+| [`facturacion.php`](facturacion.php) | Módulo de Facturación Electrónica **CFDI 4.0** dividido en listado de facturas (`?vista=emitidas`) y formulario de timbrado (`?vista=timbrar`) |
+| [`consulta.php`](consulta.php) | Estación clínica enfocada por pestaña: **1. Nutrición ISAK + SMAE**, **2. Psicología TCC/SOAP**, **3. Checkup 360° (HOMA-IR)** y **4. Historial Evolución** |
+| [`administracion.php`](administracion.php) | Dashboard administrativo con vistas para **Resumen y Nómina de Especialistas**, **Gastos Operativos** y **Catálogo de Precios** |
 | [`imprimir_plan.php`](imprimir_plan.php) | Reporte clínico integral imprimible/PDF (Resultados Checkup 360° + Antropometría ISAK + Menú SMAE + Acuerdos TCC) |
-| [`style.css`](style.css) | Sistema de diseño clínico moderno (*Glassmorphism*, tipografía `Plus Jakarta Sans` + `Inter`, animaciones y `@media print`) |
+| [`style.css`](style.css) | Sistema de diseño editorial médico (`Fraunces` + `DM Sans`, paleta cálida `#faf9f6` / `#0f5247`, barra lateral `.app-shell` y ventanas modales) |
 | [`.cpanel.yml`](.cpanel.yml) | Configuración de despliegue automático hacia `public_html/` mediante **Git™ Version Control** en cPanel |
 
 ---
 
-## 🚀 Guía de Ejecución Local y Despliegue en cPanel
+## Guía de Ejecución Local y Despliegue en cPanel
 
 ### Opción A: Ejecución Local Instantánea (Sin instalar MySQL)
 Gracias al motor dual en [`db_connection.php`](db_connection.php), si ejecutas el proyecto en tu computadora sin un servidor MySQL activo, el sistema **crea e inicializa automáticamente** una base de datos local SQLite (`nutrimind_local.sqlite`) con las 12 tablas y todos los pacientes, citas, checkups, pagos y facturas de demostración:
 ```bash
 php -S localhost:8000
 ```
-Luego abre `http://localhost:8000` en tu navegador. Puedes cambiar de operador en turno (Mostrador, Nutriólogo, Psicólogo o Administrador) desde el selector en la esquina superior derecha de la barra de navegación.
+Luego abre `http://localhost:8000` en tu navegador. En las pantallas internas puedes cambiar de operador en turno desde el selector ubicado en la parte inferior de la barra lateral izquierda.
 
 ### Opción B: Despliegue en Servidor de Producción con cPanel
 1. **Base de Datos MySQL**:
